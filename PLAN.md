@@ -54,28 +54,28 @@
 **Weeks 3–4 | Goal: Real-time transactional, login, and device events flow into consumable streams**
 
 ### Kafka Schema Design
-- [ ] Define Avro schemas for three event types:
+- [x] Define Avro schemas for three event types:
   - `TransactionEvent`: `{transaction_id, account_id, amount, currency, merchant_id, timestamp, metadata}`
   - `LoginEvent`: `{session_id, account_id, ip_address, user_agent, geo, timestamp, success}`
   - `DeviceEvent`: `{device_id, account_id, fingerprint, os, app_version, timestamp}`
-- [ ] Register schemas in Schema Registry; version-lock in `ingestion/schemas/`
-- [ ] Document all fields with `doc` attributes in Avro schema files
+- [x] Register schemas in Schema Registry; version-lock in `ingestion/schemas/`
+- [x] Document all fields with `doc` attributes in Avro schema files
 
 ### Kafka Consumers (`ingestion/consumers/`)
-- [ ] `transaction_consumer.py` — consumes `KAFKA_TOPIC_TRANSACTIONS`; validates schema; emits to internal processing queue
-- [ ] `login_consumer.py` — consumes `KAFKA_TOPIC_LOGINS`
-- [ ] `device_consumer.py` — consumes `KAFKA_TOPIC_DEVICES`
-- [ ] Base consumer class with: auto-offset reset, dead-letter topic on schema failure, structured logging (JSON)
-- [ ] Consumer group config ensures exactly-once processing semantics
+- [x] `transaction_consumer.py` — consumes `KAFKA_TOPIC_TRANSACTIONS`; validates schema; emits to internal processing queue
+- [x] `login_consumer.py` — consumes `KAFKA_TOPIC_LOGINS`
+- [x] `device_consumer.py` — consumes `KAFKA_TOPIC_DEVICES`
+- [x] Base consumer class with: auto-offset reset, dead-letter topic on schema failure, structured logging (JSON)
+- [x] Consumer group config ensures exactly-once processing semantics
 
 ### Synthetic Event Producer (Testing & Red-Team)
-- [ ] `ingestion/producers/synthetic_producer.py` — generates realistic fake events for load testing and red-team injection
-- [ ] **Always tags synthetic events**: `{"synthetic": true, "origin": "red_team"}` in event metadata
-- [ ] Respects `SYNTHETIC_INJECTION_DRY_RUN` env flag — logs instead of publishing when `true`
+- [x] `ingestion/producers/synthetic_producer.py` — generates realistic fake events for load testing and red-team injection
+- [x] **Always tags synthetic events**: `{"synthetic": true, "origin": "red_team"}` in event metadata
+- [x] Respects `SYNTHETIC_INJECTION_DRY_RUN` env flag — logs instead of publishing when `true`
 
 ### Monitoring
-- [ ] Consumer lag metric exposed via `/metrics` endpoint (Prometheus-compatible)
-- [ ] Alert threshold config for consumer lag > 1000 messages
+- [x] Consumer lag metric exposed via `/metrics` endpoint (Prometheus-compatible)
+- [x] Alert threshold config for consumer lag > 1000 messages
 
 ### Definition of Done
 - 10,000 synthetic events/minute sustained throughput with < 500ms end-to-end latency
@@ -88,28 +88,28 @@
 **Weeks 5–6 | Goal: LLM-powered agents generate structurally valid, diverse fraud scenarios**
 
 ### Base Agent Architecture (`red_team/agents/`)
-- [ ] `base_agent.py` — abstract class: `generate_scenario() -> ScenarioConfig`; enforces rate limiting, cost tracking, output validation
-- [ ] `ScenarioConfig` Pydantic model: `{attack_type, complexity, target_segment, evasion_tactics, transaction_pattern, expected_detection_signals}`
-- [ ] JSON Schema validation on every agent output; invalid outputs are logged and retried (max 3 attempts)
-- [ ] All agent calls append to `synthetic_audit` Kafka topic immediately (before injection)
+- [x] `base_agent.py` — abstract class: `generate_scenario() -> ScenarioConfig`; enforces rate limiting, cost tracking, output validation
+- [x] `ScenarioConfig` Pydantic model: `{attack_type, complexity, target_segment, evasion_tactics, transaction_pattern, expected_detection_signals}`
+- [x] JSON Schema validation on every agent output; invalid outputs are logged and retried (max 3 attempts)
+- [x] All agent calls append to `synthetic_audit` Kafka topic immediately (before injection)
 
 ### Attacker Agents
-- [ ] `phishing_agent.py` — generates phishing email + credential stuffing scenarios
+- [x] `phishing_agent.py` — generates phishing email + credential stuffing scenarios
   - Inputs: target segment config, sophistication level
   - Outputs: login event sequence + transaction pattern that follows a successful phishing attack
-- [ ] `laundering_agent.py` — generates money-laundering chain scenarios
+- [x] `laundering_agent.py` — generates money-laundering chain scenarios
   - Outputs: multi-hop transaction graph (structured for Neo4j ingestion) designed to look legitimate
-- [ ] `account_takeover_agent.py` — generates ATO patterns: device fingerprint changes, login anomalies, rapid payee additions
-- [ ] Prompt templates stored in `red_team/agents/prompts/` as versioned `.j2` (Jinja2) files — never hardcoded
+- [x] `account_takeover_agent.py` — generates ATO patterns: device fingerprint changes, login anomalies, rapid payee additions
+- [x] Prompt templates stored in `red_team/agents/prompts/` as versioned `.j2` (Jinja2) files — never hardcoded
 
 ### Scenario Config Library (`red_team/scenarios/`)
-- [ ] At least 10 seed scenario YAML configs covering: card fraud, synthetic identity, first-party fraud, mule accounts, smurfing
-- [ ] YAML schema enforced via `pydantic-settings`
+- [x] At least 10 seed scenario YAML configs covering: card fraud, synthetic identity, first-party fraud, mule accounts, smurfing
+- [x] YAML schema enforced via `pydantic-settings`
 
 ### Safety Controls
-- [ ] `RED_TEAM_ENABLED` check as a decorator (`@require_red_team_enabled`) applied to all agent entry points
-- [ ] LLM cost budget cap per DAG run (configurable via Airflow Variable)
-- [ ] No agent may output raw PII — output validator strips and flags any detected PII patterns
+- [x] `RED_TEAM_ENABLED` check as a decorator (`@require_red_team_enabled`) applied to all agent entry points
+- [x] LLM cost budget cap per DAG run (configurable via Airflow Variable)
+- [x] No agent may output raw PII — output validator strips and flags any detected PII patterns
 
 ### Definition of Done
 - Each agent generates ≥ 20 unique, schema-valid scenarios without repetition in a single run
@@ -122,22 +122,22 @@
 **Weeks 7–8 | Goal: Full automated attack cycle — generate, inject, audit — runs on schedule**
 
 ### DAG Architecture (`red_team/dags/`)
-- [ ] `attack_orchestrator.py` — master DAG; tags: `["red_team"]`
+- [x] `attack_orchestrator.py` — master DAG; tags: `["red_team"]`
   - Tasks: `select_scenario` → `generate_synthetic_fraud` → `validate_output` → `inject_to_kafka` → `log_to_audit` → `trigger_detection_eval`
   - Schedule: configurable (default: every 6 hours in staging, manual-trigger in prod)
   - Respects `RED_TEAM_ENABLED` at DAG level — skips all tasks if `false`
-- [ ] `scenario_generator.py` — DAG that maintains scenario library freshness; generates new scenario variants weekly
-- [ ] `model_retraining_trigger.py` — DAG that triggers ML retraining when detection recall drops below threshold
+- [x] `scenario_generator.py` — DAG that maintains scenario library freshness; generates new scenario variants weekly
+- [x] `model_retraining_trigger.py` — DAG that triggers ML retraining when detection recall drops below threshold
 
 ### TaskFlow Implementation
-- [ ] All tasks use `@task` decorator
-- [ ] Secrets via Airflow Connections — no env var interpolation in DAG files
-- [ ] XCom usage minimized; pass only scenario IDs between tasks (full payloads go through Kafka)
-- [ ] Every DAG has `doc_md` string with: purpose, trigger conditions, dependencies, kill-switch behavior
+- [x] All tasks use `@task` decorator
+- [x] Secrets via Airflow Connections — no env var interpolation in DAG files
+- [x] XCom usage minimized; pass only scenario IDs between tasks (full payloads go through Kafka)
+- [x] Every DAG has `doc_md` string with: purpose, trigger conditions, dependencies, kill-switch behavior
 
 ### Audit Trail
-- [ ] `log_to_audit` task appends to `synthetic_audit` topic: `{scenario_id, attack_type, generated_at, injected_at, dry_run, agent_version, cost_usd}`
-- [ ] Audit records include DAG run ID for traceability
+- [x] `log_to_audit` task appends to `synthetic_audit` topic: `{scenario_id, attack_type, generated_at, injected_at, dry_run, agent_version, cost_usd}`
+- [x] Audit records include DAG run ID for traceability
 
 ### Definition of Done
 - End-to-end DAG run completes in < 5 minutes for a batch of 50 scenarios
@@ -150,26 +150,26 @@
 **Weeks 9–10 | Goal: Behavioral profiles stored; drift detection flags anomalies in real time**
 
 ### Behavioral Profile Builder (`ml/embeddings/`)
-- [ ] `profile_builder.py` — ingests clean transaction history; generates per-user behavioral embedding
+- [x] `profile_builder.py` — ingests clean transaction history; generates per-user behavioral embedding
   - Embedding input: transaction amount distribution, merchant category mix, time-of-day patterns, geo patterns (serialized as text + structured fields)
   - Model: `text-embedding-3-large`
   - Upsert to Pinecone with metadata: `{account_id, label, last_updated, transaction_count}`
-- [ ] `synthetic_profile_injector.py` — takes attacker agent output; embeds synthetic fraud pattern; upserts with `label: synthetic_fraud`
-- [ ] PII tokenizer middleware: strips/tokenizes account numbers and names before any embedding call
+- [x] `synthetic_profile_injector.py` — takes attacker agent output; embeds synthetic fraud pattern; upserts with `label: synthetic_fraud`
+- [x] PII tokenizer middleware: strips/tokenizes account numbers and names before any embedding call
 
 ### Drift Detection (`ml/anomaly/`)
-- [ ] `drift_detector.py`:
+- [x] `drift_detector.py`:
   - Query Pinecone for top-k nearest neighbors to incoming transaction embedding
   - Compute weighted cosine similarity score
   - Return `DriftResult(score, flagged, nearest_neighbors, drift_type)`
   - Threshold configurable per account segment (conservative for high-value accounts)
-- [ ] `anomaly_pipeline.py` — Celery task that runs drift detection on every `TransactionEvent` from Kafka
-- [ ] Results published to `KAFKA_TOPIC_DETECTION_RESULTS` for downstream consumption
+- [x] `anomaly_pipeline.py` — Celery task that runs drift detection on every `TransactionEvent` from Kafka
+- [x] Results published to `KAFKA_TOPIC_DETECTION_RESULTS` for downstream consumption
 
 ### Index Management
-- [ ] Two Pinecone indexes: `clean-profiles` + `suspicious-profiles` (per `CLAUDE.md §5`)
-- [ ] Nightly job: refresh clean profiles for accounts with > 100 new transactions
-- [ ] Staleness detection: alert if any profile is > 30 days old
+- [x] Two Pinecone indexes: `clean-profiles` + `suspicious-profiles` (per `CLAUDE.md §5`)
+- [x] Nightly job: refresh clean profiles for accounts with > 100 new transactions (`profile_refresh_dag.py`)
+- [x] Staleness detection: alert if any profile is > 30 days old
 
 ### Definition of Done
 - Drift detection latency < 200ms p99 on a cold query
@@ -182,32 +182,32 @@
 **Weeks 11–12 | Goal: Fraud ring detection via account relationship graph**
 
 ### Graph Schema (`ml/graph/`)
-- [ ] Node types: `Account`, `Transaction`, `Device`, `Merchant`, `IPAddress`
-- [ ] Relationships:
+- [x] Node types: `Account`, `Transaction`, `Device`, `Merchant`, `IPAddress`
+- [x] Relationships:
   - `(Account)-[:SENT_TO]->(Account)` (with `amount`, `timestamp` properties)
   - `(Account)-[:LOGGED_IN_FROM]->(IPAddress)`
   - `(Account)-[:USED_DEVICE]->(Device)`
   - `(Account)-[:TRANSACTED_AT]->(Merchant)`
-- [ ] Cypher constraints: `UNIQUE` on `Account.account_id`, `Transaction.transaction_id`
-- [ ] All Cypher queries parameterized; stored in `ml/graph/queries/` as `.cypher` files
+- [x] Cypher constraints: `UNIQUE` on `Account.account_id`, `Transaction.transaction_id`
+- [x] All Cypher queries parameterized; stored in `ml/graph/queries/` as `.cypher` files
 
 ### Graph Ingestion
-- [ ] `graph_ingestion.py` — Kafka consumer that writes `TransactionEvent` and `LoginEvent` to Neo4j in real time
-- [ ] Batch loader for historical data backfill (parallelized by account segment)
-- [ ] Synthetic fraud transactions tagged with `synthetic: true` property on nodes and relationships
+- [x] `graph_ingestion.py` — Kafka consumer that writes `TransactionEvent` and `LoginEvent` to Neo4j in real time
+- [x] Batch loader for historical data backfill (parallelized by account segment)
+- [x] Synthetic fraud transactions tagged with `synthetic: true` property on nodes and relationships
 
 ### Community Detection (`ml/graph/community_detection.py`)
-- [ ] Run Louvain algorithm via Neo4j GDS on `SENT_TO` relationship graph
-- [ ] Flag clusters where:
+- [x] Run Louvain algorithm via Neo4j GDS on `SENT_TO` relationship graph
+- [x] Flag clusters where:
   - Cluster size > configurable threshold AND
   - Money flow is predominantly unidirectional (laundering signal) AND
   - Accounts share `IPAddress` or `Device` nodes (collusion signal)
-- [ ] Output: `FraudRing(ring_id, member_account_ids, risk_score, signals[])`
-- [ ] Results stored back in Neo4j as `FraudRing` nodes linked to member `Account` nodes
+- [x] Output: `FraudRing(ring_id, member_account_ids, risk_score, signals[])`
+- [x] Results stored back in Neo4j as `FraudRing` nodes linked to member `Account` nodes
 
 ### Airflow Integration
-- [ ] Add `community_detection_dag.py` — runs Louvain daily + on-demand trigger from red-team DAG
-- [ ] Alert task: if new fraud ring detected with risk_score > 0.85, publish to `KAFKA_TOPIC_ALERTS`
+- [x] Add `community_detection_dag.py` — runs Louvain daily + on-demand trigger from red-team DAG
+- [x] Alert task: if new fraud ring detected with risk_score > 0.85, publish to `KAFKA_TOPIC_ALERTS`
 
 ### Definition of Done
 - Graph ingestion sustains 5,000 transaction edges/minute

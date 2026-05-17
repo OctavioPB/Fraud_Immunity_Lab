@@ -1,0 +1,37 @@
+name: Spear Phishing — High-Net-Worth Wire Fraud
+version: "1.0.0"
+attack_type: phishing
+complexity: critical
+target_segment: wealth_management
+description: >
+  Highly targeted spear-phishing campaign against high-net-worth clients.
+  Attacker researches target on social media, crafts personalized email
+  appearing to come from their relationship manager, and tricks the client
+  into authorizing a large wire transfer to an attacker-controlled account.
+evasion_tactics:
+  - personalized_pretext
+  - lookalike_advisor_domain
+  - urgency_manufacturing
+  - business_email_compromise
+  - wire_during_client_travel
+expected_detection_signals:
+  - new_payee_high_value_wire
+  - geo_velocity_anomaly
+  - behavioral_drift_transaction
+  - out_of_pattern_wire_amount
+  - contact_info_change_before_transfer
+parameters:
+  social_engineering:
+    research_duration_days: 14
+    pretext: "investment_opportunity"
+    urgency_window_hours: 2
+  wire:
+    amount_range_usd: [250000, 2000000]
+    destination: "offshore_correspondent_bank"
+    time_to_send_minutes: 30
+tags:
+  - phishing
+  - spear_phishing
+  - wire_fraud
+  - bec
+  - high_net_worth

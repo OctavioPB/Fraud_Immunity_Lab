@@ -1,0 +1,39 @@
+name: Synthetic Identity Fraud — Credit File Piggybacking
+version: "1.0.0"
+attack_type: synthetic_identity
+complexity: critical
+target_segment: retail_banking
+description: >
+  Fraudster creates a synthetic identity by combining a real SSN (often belonging
+  to a minor or deceased person) with fabricated name, address, and DOB.
+  Account is aged over months with small, on-time payments to build credit before
+  a final bust-out event cleans out all available credit.
+evasion_tactics:
+  - slow_account_aging
+  - piggybacking_authorized_user
+  - consistent_payment_history
+  - gradual_credit_limit_increases
+  - coordinated_bust_out_timing
+expected_detection_signals:
+  - ssn_age_mismatch
+  - thin_file_high_credit_request
+  - bust_out_velocity_spike
+  - behavioral_drift_transaction
+  - community_detection_fraud_ring
+parameters:
+  aging_phase:
+    duration_months: 6
+    monthly_spend_ratio: 0.15
+    payment_behavior: "on_time"
+  bust_out:
+    credit_utilization_target: 0.95
+    time_window_days: 14
+    channel_mix:
+      - cash_advance
+      - wire_transfer
+      - luxury_retail
+tags:
+  - synthetic_identity
+  - credit_fraud
+  - bust_out
+  - long_con

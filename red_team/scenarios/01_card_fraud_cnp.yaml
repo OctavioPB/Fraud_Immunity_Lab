@@ -1,0 +1,35 @@
+name: Card-Not-Present Fraud — Stolen Credentials
+version: "1.0.0"
+attack_type: card_fraud
+complexity: medium
+target_segment: retail_banking
+description: >
+  Attacker uses stolen card credentials purchased on dark-web markets to make
+  card-not-present purchases. Low initial amounts (card testing) followed by
+  rapid escalation once the card is confirmed live.
+evasion_tactics:
+  - low_value_card_testing
+  - residential_proxy
+  - rotating_merchant_categories
+  - off_hours_transactions
+expected_detection_signals:
+  - velocity_spike_card_testing
+  - behavioral_drift_transaction
+  - new_merchant_category_high_value
+  - geo_ip_mismatch
+parameters:
+  card_testing:
+    initial_amount_range_usd: [0.01, 1.99]
+    testing_transaction_count: 3
+  escalation:
+    time_to_escalation_minutes: 15
+    max_transaction_amount_usd: 2500
+    transaction_count: 5
+  merchant_categories:
+    - electronics
+    - luxury_goods
+    - gift_cards
+tags:
+  - card_fraud
+  - cnp
+  - dark_web

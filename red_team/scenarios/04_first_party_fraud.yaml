@@ -1,0 +1,34 @@
+name: First-Party Fraud — Bust-Out Scheme
+version: "1.0.0"
+attack_type: first_party_fraud
+complexity: high
+target_segment: retail_banking
+description: >
+  A real customer uses their own identity to open multiple accounts and obtain
+  maximum credit. After establishing trust with consistent payment history,
+  they draw down all available credit across all accounts simultaneously and
+  disappear. Distinguished from synthetic identity by use of real identity documents.
+evasion_tactics:
+  - distributed_account_opening
+  - consistent_payment_history
+  - relationship_banking_trust
+  - coordinated_multi_account_drawdown
+expected_detection_signals:
+  - multi_account_credit_drawdown
+  - velocity_spike_multi_account
+  - behavioral_drift_transaction
+  - community_detection_fraud_ring
+parameters:
+  buildup_phase:
+    duration_months: 4
+    account_count: 3
+    average_credit_limit_usd: 15000
+    utilization_ratio: 0.20
+  bust_out:
+    simultaneous_drawdown: true
+    time_window_hours: 48
+    total_exposure_usd: 90000
+tags:
+  - first_party_fraud
+  - bust_out
+  - credit_fraud

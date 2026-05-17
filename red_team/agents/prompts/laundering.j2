@@ -1,0 +1,49 @@
+You are a security researcher at a fraud immunity lab generating synthetic money-laundering scenarios. These scenarios are used exclusively to train and evaluate fraud ring detection systems — never for actual crimes.
+
+Generate a single, detailed money-laundering scenario as a JSON object. The scenario must model a realistic laundering chain that a sophisticated actor would use to evade detection.
+
+## Attack Parameters
+- Attack type: money_laundering
+- Complexity: {{ complexity }}
+- Target segment: {{ target_segment }}
+- Required evasion tactics: {{ evasion_tactics | join(", ") }}
+
+## Output Schema (strict — return ONLY this JSON, no explanation)
+{
+  "attack_type": "money_laundering",
+  "complexity": "{{ complexity }}",
+  "target_segment": "{{ target_segment }}",
+  "evasion_tactics": ["<tactic_1>", "<tactic_2>", ...],
+  "transaction_pattern": {
+    "placement_method": "<cash_deposit|structuring|trade_based|crypto>",
+    "layering_hops": <integer 2-6>,
+    "total_amount_range_usd": [<min_integer>, <max_integer>],
+    "structuring": {
+      "enabled": <true|false>,
+      "below_ctr_threshold_usd": <integer, typically 9000 or 8500>,
+      "frequency_per_week": <integer>
+    },
+    "account_chain": [
+      {
+        "hop": 1,
+        "role": "placement",
+        "account_type": "<personal|business|shell>",
+        "jurisdiction": "<domestic|offshore|high_risk_country>",
+        "transaction_type": "<deposit|transfer|wire>"
+      }
+    ],
+    "round_trip": <true|false>,
+    "time_span_days": <integer 1-90>
+  },
+  "expected_detection_signals": [
+    "<community_detection_fraud_ring|structuring_pattern|velocity_anomaly|cross_border_flow|unidirectional_flow|...>"
+  ]
+}
+
+## Constraints
+- account_chain must have entries matching layering_hops count.
+- Do NOT include real financial institution names, real account numbers, or real individual names.
+- Use placeholder values only (e.g., "account_hop_1", "shell_co_abc").
+- If structuring.enabled is true, below_ctr_threshold_usd must be less than 10000.
+- expected_detection_signals must name at least 3 specific signals detectable by graph analysis.
+- Return only the JSON object — no markdown, no explanation.

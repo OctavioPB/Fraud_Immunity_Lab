@@ -1,0 +1,44 @@
+name: Money Laundering — Trade-Based Layering
+version: "1.0.0"
+attack_type: money_laundering
+complexity: critical
+target_segment: corporate_banking
+description: >
+  Sophisticated laundering scheme using over- and under-invoicing of international
+  trade transactions to move value across borders. Shell companies in multiple
+  jurisdictions act as importer/exporter pairs, with inflated invoice amounts
+  providing a paper trail that appears legitimate. Detected via graph analysis
+  of inter-company payment flows and invoice-to-goods-value discrepancies.
+evasion_tactics:
+  - trade_based_money_laundering
+  - shell_company_network
+  - correspondent_banking_chains
+  - invoice_manipulation
+  - multi_jurisdiction_layering
+expected_detection_signals:
+  - community_detection_fraud_ring
+  - cross_border_flow_anomaly
+  - invoice_value_mismatch
+  - shell_company_pattern
+  - unidirectional_fund_flow
+parameters:
+  layering:
+    hop_count: 5
+    jurisdictions:
+      - domestic
+      - offshore_cayman
+      - offshore_bvi
+      - correspondent_eu
+      - integration_domestic
+    total_amount_usd: 5000000
+    time_span_months: 3
+  trade_invoices:
+    over_invoicing_ratio: 3.5
+    commodity: "electronics"
+    shipment_count: 8
+tags:
+  - money_laundering
+  - trade_based
+  - shell_company
+  - correspondent_banking
+  - critical_risk

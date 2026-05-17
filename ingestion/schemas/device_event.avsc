@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "DeviceEvent",
+  "namespace": "com.fraudimmunitylab.ingestion",
+  "doc": "A device registration or fingerprint observation event.",
+  "fields": [
+    {
+      "name": "device_id",
+      "type": "string",
+      "doc": "UUID v4 uniquely identifying this device. Derived from the fingerprint hash."
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "doc": "UUID of the account associated with this device at observation time."
+    },
+    {
+      "name": "fingerprint",
+      "type": "string",
+      "doc": "SHA-256 hash of the device fingerprint (browser canvas, fonts, hardware concurrency, etc.)."
+    },
+    {
+      "name": "os",
+      "type": "string",
+      "doc": "Operating system name and version string (e.g., iOS 17.2, Android 14, Windows 11)."
+    },
+    {
+      "name": "app_version",
+      "type": "string",
+      "doc": "Application version string (e.g., 4.2.1). Empty string for web sessions."
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "DeviceEventType",
+        "symbols": ["registered", "seen", "fingerprint_changed", "removed"],
+        "doc": "What happened to this device in this event."
+      },
+      "doc": "Type of device lifecycle event."
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event time as Unix epoch milliseconds (UTC)."
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {},
+      "doc": "Arbitrary string key-value metadata. Synthetic events include synthetic=true and origin=red_team."
+    }
+  ]
+}

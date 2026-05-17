@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "TransactionEvent",
+  "namespace": "com.fraudimmunitylab.ingestion",
+  "doc": "A financial transaction event produced by the ingestion pipeline.",
+  "fields": [
+    {
+      "name": "transaction_id",
+      "type": "string",
+      "doc": "UUID v4 uniquely identifying this transaction."
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "doc": "UUID of the originating account. Must be tokenized — no raw account numbers."
+    },
+    {
+      "name": "amount",
+      "type": "double",
+      "doc": "Transaction amount in minor currency units (e.g., cents for USD)."
+    },
+    {
+      "name": "currency",
+      "type": "string",
+      "doc": "ISO 4217 three-letter currency code (e.g., USD, EUR, MXN)."
+    },
+    {
+      "name": "merchant_id",
+      "type": "string",
+      "doc": "UUID of the merchant or counterparty receiving the funds."
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event time as Unix epoch milliseconds (UTC)."
+    },
+    {
+      "name": "channel",
+      "type": {
+        "type": "enum",
+        "name": "TransactionChannel",
+        "symbols": ["card_present", "card_not_present", "ach", "wire", "p2p", "atm"],
+        "doc": "Channel through which the transaction was initiated."
+      },
+      "doc": "Payment channel used."
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {},
+      "doc": "Arbitrary string key-value metadata. Synthetic events include synthetic=true and origin=red_team."
+    }
+  ]
+}

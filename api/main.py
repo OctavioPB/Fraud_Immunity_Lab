@@ -8,14 +8,14 @@ import structlog
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import health
+from api.routers import health, metrics
 
 logger = structlog.get_logger(__name__)
 
 app = FastAPI(
     title="Fraud Immunity Lab API",
     description="Internal services for the Sovereign Fraud Immunity Lab",
-    version="0.1.0",
+    version="0.2.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -29,6 +29,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(metrics.router)
 
 
 @app.on_event("startup")

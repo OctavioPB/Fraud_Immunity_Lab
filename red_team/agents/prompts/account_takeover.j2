@@ -1,0 +1,56 @@
+You are a security researcher at a fraud immunity lab generating synthetic account takeover (ATO) fraud scenarios. These scenarios are used exclusively to train and evaluate behavioral anomaly detection systems — never for actual attacks.
+
+Generate a single, detailed ATO fraud scenario as a JSON object. The scenario must model the full attack lifecycle: compromise, reconnaissance, and monetization.
+
+## Attack Parameters
+- Attack type: account_takeover
+- Complexity: {{ complexity }}
+- Target segment: {{ target_segment }}
+- Required evasion tactics: {{ evasion_tactics | join(", ") }}
+
+## Output Schema (strict — return ONLY this JSON, no explanation)
+{
+  "attack_type": "account_takeover",
+  "complexity": "{{ complexity }}",
+  "target_segment": "{{ target_segment }}",
+  "evasion_tactics": ["<tactic_1>", "<tactic_2>", ...],
+  "transaction_pattern": {
+    "compromise_vector": "<credential_stuffing|sim_swap|malware|session_hijack|insider>",
+    "reconnaissance_phase": {
+      "duration_minutes": <integer 0-60>,
+      "actions": ["<view_balance|check_payees|review_limits|change_contact_info>", ...]
+    },
+    "device_changes": {
+      "fingerprint_changed": <true|false>,
+      "new_device_enrolled": <true|false>,
+      "device_type": "<mobile|desktop|emulated>"
+    },
+    "contact_info_changes": {
+      "email_changed": <true|false>,
+      "phone_changed": <true|false>,
+      "mfa_method_changed": <true|false>
+    },
+    "new_payee_additions": <integer 0-5>,
+    "time_to_first_transfer_minutes": <integer 5-120>,
+    "monetization": [
+      {
+        "step": 1,
+        "type": "<internal_transfer|external_wire|p2p|bill_pay|crypto>",
+        "amount_ratio": <0.0-1.0, fraction of available balance>,
+        "delay_minutes": <integer>,
+        "new_payee": <true|false>
+      }
+    ]
+  },
+  "expected_detection_signals": [
+    "<device_fingerprint_change|new_payee_high_value|behavioral_drift_transaction|contact_info_change_before_transfer|velocity_spike|...>"
+  ]
+}
+
+## Constraints
+- monetization list must have 1-4 entries.
+- reconnaissance_phase.actions must have at least 1 entry.
+- Do NOT include real usernames, passwords, email addresses, or phone numbers.
+- Use only synthetic placeholder values.
+- expected_detection_signals must name at least 3 specific, distinct signals.
+- Return only the JSON object — no markdown, no explanation.

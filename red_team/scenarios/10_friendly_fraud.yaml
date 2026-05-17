@@ -1,0 +1,39 @@
+name: Friendly Fraud — Chargeback Abuse
+version: "1.0.0"
+attack_type: friendly_fraud
+complexity: low
+target_segment: retail_banking
+description: >
+  A real account holder makes legitimate purchases, receives goods or services,
+  then files fraudulent chargebacks claiming non-delivery or unauthorized use.
+  Often repeated across multiple merchants. Low individual ticket size but
+  high cumulative frequency makes this a systemic risk.
+evasion_tactics:
+  - legitimate_account_history
+  - varied_merchant_targets
+  - plausible_dispute_reasons
+  - timing_disputes_after_return_window
+expected_detection_signals:
+  - high_chargeback_rate
+  - dispute_pattern_repeat_merchant_categories
+  - behavioral_drift_dispute_velocity
+  - post_dispute_purchase_same_category
+parameters:
+  dispute_pattern:
+    chargeback_count_per_quarter: 8
+    average_dispute_amount_usd: 350
+    dispute_reasons:
+      - "item_not_received"
+      - "unauthorized_transaction"
+      - "not_as_described"
+    time_to_dispute_days_after_purchase: 45
+  merchant_categories:
+    - electronics
+    - travel
+    - digital_goods
+    - subscription_services
+tags:
+  - friendly_fraud
+  - chargeback
+  - dispute_abuse
+  - low_complexity

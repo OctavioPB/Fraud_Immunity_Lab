@@ -1,0 +1,35 @@
+name: Card-Present Fraud — ATM Skimming
+version: "1.0.0"
+attack_type: card_fraud
+complexity: high
+target_segment: retail_banking
+description: >
+  Physical card skimming device placed on ATM or POS terminal captures card data
+  and PIN. Cloned card is then used at geographically distant ATMs for rapid cash
+  withdrawals before victim detects fraud.
+evasion_tactics:
+  - geographic_distribution
+  - multiple_atm_locations
+  - nighttime_transactions
+  - below_daily_limit_structuring
+expected_detection_signals:
+  - geo_velocity_anomaly
+  - card_present_after_cnp_gap
+  - multiple_atm_withdrawals
+  - behavioral_drift_channel
+parameters:
+  skimming:
+    capture_location: "atm"
+    time_between_capture_and_use_hours: 24
+  cash_out:
+    atm_count: 4
+    amount_per_atm_usd: 400
+    time_window_hours: 2
+    jurisdictions:
+      - domestic
+      - cross_border
+tags:
+  - card_fraud
+  - card_present
+  - atm
+  - skimming

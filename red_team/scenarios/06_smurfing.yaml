@@ -1,0 +1,35 @@
+name: Structuring — Smurfing Below CTR Threshold
+version: "1.0.0"
+attack_type: smurfing
+complexity: medium
+target_segment: retail_banking
+description: >
+  Illicit cash broken into small amounts below the $10,000 Currency Transaction
+  Report threshold, then deposited across multiple branches or accounts by
+  multiple individuals (smurfs) within a short window. Classic structuring
+  pattern designed to evade mandatory BSA/AML reporting.
+evasion_tactics:
+  - below_ctr_threshold_structuring
+  - multiple_branch_locations
+  - distributed_depositors
+  - varied_deposit_amounts
+  - spread_over_multiple_days
+expected_detection_signals:
+  - structuring_pattern
+  - velocity_anomaly_deposits
+  - community_detection_fraud_ring
+  - multiple_depositors_same_account
+parameters:
+  structuring:
+    ctr_threshold_usd: 10000
+    target_deposit_range_usd: [7500, 9800]
+    deposit_count_per_day: 3
+    total_amount_usd: 75000
+    days_to_complete: 10
+    depositor_count: 5
+  detection_window_days: 30
+tags:
+  - smurfing
+  - structuring
+  - aml
+  - bsa

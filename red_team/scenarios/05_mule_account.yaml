@@ -1,0 +1,35 @@
+name: Money Mule Network — Recruited Mule
+version: "1.0.0"
+attack_type: mule_account
+complexity: high
+target_segment: retail_banking
+description: >
+  Fraudster recruits a real person (money mule) via fake job ads promising
+  "payment processing" work from home. The mule receives stolen funds into
+  their account, keeps a commission, and forwards the remainder. Mule may be
+  witting or unwitting. Detected via graph patterns: accounts that receive
+  then rapidly forward funds with similar timing across multiple mules.
+evasion_tactics:
+  - legitimate_looking_account_history
+  - small_commission_retention
+  - domestic_wires_only
+  - staggered_forwarding_times
+expected_detection_signals:
+  - pass_through_transaction_pattern
+  - community_detection_fraud_ring
+  - unidirectional_money_flow
+  - new_payee_rapid_transfer
+parameters:
+  mule_network:
+    mule_count: 8
+    funds_per_mule_usd: 5000
+    commission_retention_ratio: 0.08
+    forwarding_delay_hours: 2
+  transaction_pattern:
+    receive_then_forward_window_hours: 4
+    destination_account_type: "offshore_or_crypto"
+tags:
+  - mule_account
+  - money_laundering
+  - fraud_ring
+  - recruitment_scam

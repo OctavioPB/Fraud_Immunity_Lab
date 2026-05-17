@@ -1,0 +1,87 @@
+{
+  "type": "record",
+  "name": "LoginEvent",
+  "namespace": "com.fraudimmunitylab.ingestion",
+  "doc": "An account login attempt event, emitted on every authentication attempt.",
+  "fields": [
+    {
+      "name": "session_id",
+      "type": "string",
+      "doc": "UUID v4 of the session associated with this login attempt."
+    },
+    {
+      "name": "account_id",
+      "type": "string",
+      "doc": "UUID of the account under authentication. Tokenized — no raw email or username."
+    },
+    {
+      "name": "ip_address",
+      "type": "string",
+      "doc": "Tokenized IP address hash. Raw IPs must be hashed before ingestion (Hard Rule #4)."
+    },
+    {
+      "name": "user_agent",
+      "type": "string",
+      "doc": "Raw HTTP User-Agent string from the client."
+    },
+    {
+      "name": "geo",
+      "type": {
+        "type": "record",
+        "name": "GeoLocation",
+        "doc": "Approximate geolocation derived from the tokenized IP.",
+        "fields": [
+          {
+            "name": "country",
+            "type": "string",
+            "doc": "ISO 3166-1 alpha-2 country code (e.g., MX, US)."
+          },
+          {
+            "name": "city",
+            "type": "string",
+            "doc": "City name. May be empty if unavailable."
+          },
+          {
+            "name": "lat",
+            "type": "double",
+            "doc": "Approximate latitude. Truncated to 2 decimal places for privacy."
+          },
+          {
+            "name": "lon",
+            "type": "double",
+            "doc": "Approximate longitude. Truncated to 2 decimal places for privacy."
+          }
+        ]
+      },
+      "doc": "Geolocation derived from the tokenized IP address."
+    },
+    {
+      "name": "timestamp",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Event time as Unix epoch milliseconds (UTC)."
+    },
+    {
+      "name": "success",
+      "type": "boolean",
+      "doc": "True if the authentication attempt succeeded; false if it failed."
+    },
+    {
+      "name": "failure_reason",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Machine-readable reason code for a failed login (e.g., bad_password, mfa_failed). Null on success."
+    },
+    {
+      "name": "metadata",
+      "type": {
+        "type": "map",
+        "values": "string"
+      },
+      "default": {},
+      "doc": "Arbitrary string key-value metadata. Synthetic events include synthetic=true and origin=red_team."
+    }
+  ]
+}
