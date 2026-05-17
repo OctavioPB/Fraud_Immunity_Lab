@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ============================================================
+  # Python: lint, format-check, unit tests
+  # ============================================================
+  python:
+    name: Python — lint + format + test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Black format check
+        run: black --check .
+
+      - name: Unit tests
+        run: |
+          pytest tests/unit -v \
+            --cov=api --cov=ml --cov=ingestion --cov=red_team \
+            --cov-report=xml \
+            --cov-fail-under=80
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  # ============================================================
+  # TypeScript / Next.js: lint + format-check + type-check
+  # ============================================================
+  frontend:
+    name: Frontend — lint + format + type-check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: dashboard
+        run: npm ci
+
+      - name: ESLint
+        working-directory: dashboard
+        run: npx eslint . --ext .ts,.tsx --max-warnings 0
+
+      - name: Prettier format check
+        working-directory: dashboard
+        run: npx prettier --check .
+
+      - name: TypeScript type-check
+        working-directory: dashboard
+        run: npx tsc --noEmit
+
+  # ============================================================
+  # Security: detect-secrets baseline check
+  # ============================================================
+  secrets-scan:
+    name: Secrets scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install detect-secrets
+        run: pip install detect-secrets==1.5.0
+
+      - name: Scan for secrets
+        run: |
+          detect-secrets scan --baseline .secrets.baseline \
+            --exclude-files '\.env\.example' \
+            --exclude-files '.*\.md'
+
+  # ============================================================
+  # Hard-rule enforcement: RED_TEAM_ENABLED kill-switch check
+  # ============================================================
+  hard-rules:
+    name: Hard rules enforcement
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rule 3 — Synthetic tag check
+        run: |
+          python3 infra/hooks/check_synthetic_tag.py \
+            $(find red_team ingestion/producers -name "*.py" 2>/dev/null || true)
+
+      - name: Rule 5 — Kill-switch must exist in all DAG files
+        run: |
+          dags=$(find red_team/dags -name "*.py" 2>/dev/null)
+          if [ -n "$dags" ]; then
+            for dag in $dags; do
+              if ! grep -q "RED_TEAM_ENABLED" "$dag"; then
+                echo "FAIL: $dag does not check RED_TEAM_ENABLED (Hard Rule #5)"
+                exit 1
+              fi
+            done
+            echo "All DAG files reference RED_TEAM_ENABLED ✓"
+          else
+            echo "No DAG files yet — skipping"
+          fi
+
+      - name: Rule 4 — PII boundary check (no raw PII in embeddings)
+        run: |
+          files=$(find ml/embeddings -name "*.py" 2>/dev/null)
+          pii_patterns=("account_number" "ssn" "social_security" "date_of_birth" "dob")
+          if [ -n "$files" ]; then
+            for f in $files; do
+              for pat in "${pii_patterns[@]}"; do
+                if grep -qi "$pat" "$f"; then
+                  echo "WARNING: $f may contain raw PII reference: $pat"
+                  echo "Verify tokenization is applied before embedding. (Hard Rule #4)"
+                fi
+              done
+            done
+          fi
