@@ -9,17 +9,32 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import health, metrics
+from api.routers import immunity_score
+from api.middleware.auth import JWTAuthMiddleware
+from api.middleware.logging import RequestLoggingMiddleware
 
 logger = structlog.get_logger(__name__)
 
+_AUTH_ENABLED: bool = (
+    os.getenv("JWT_AUTH_ENABLED", "true").strip().lower() == "true"
+)
+
 app = FastAPI(
     title="Fraud Immunity Lab API",
-    description="Internal services for the Sovereign Fraud Immunity Lab",
-    version="0.2.0",
+    description=(
+        "Internal services for the Sovereign Fraud Immunity Lab. "
+        "Provides Immunity Score computation, scenario coverage reporting, "
+        "and Prometheus metrics."
+    ),
+    version="0.3.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
+# Middleware order: outermost runs last on request, first on response.
+# RequestLogging must wrap JWTAuth so it sees the authenticated tenant_id.
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(JWTAuthMiddleware, enforce=_AUTH_ENABLED)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("API_ALLOWED_ORIGINS", "http://localhost:3000").split(","),
@@ -30,8 +45,13 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(metrics.router)
+app.include_router(immunity_score.router)
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    logger.info("fraud_immunity_lab_api_started", version="0.1.0")
+    logger.info(
+        "fraud_immunity_lab_api_started",
+        version="0.3.0",
+        jwt_auth_enabled=_AUTH_ENABLED,
+    )

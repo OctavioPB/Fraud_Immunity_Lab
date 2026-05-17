@@ -229,25 +229,25 @@ ImmunityScore (0–100) =
 ```
 
 ### Score Engine (`api/routers/immunity_score.py`)
-- [ ] `ScoreCalculator` service class — pulls inputs from Pinecone stats, Neo4j query, Airflow DAG history
-- [ ] Score computed per tenant; cached in Redis with 5-minute TTL
-- [ ] Historical score time series stored in PostgreSQL (new service addition — see infra)
-- [ ] `GET /immunity-score` — returns current score + component breakdown
-- [ ] `GET /immunity-score/history?days=30` — returns time series
-- [ ] `GET /immunity-score/scenarios` — lists attack types tested + detection rate per type
+- [x] `ScoreCalculator` service class — pulls inputs from Pinecone stats, Neo4j query, Airflow DAG history
+- [x] Score computed per tenant; cached in Redis with 5-minute TTL
+- [x] Historical score time series stored in PostgreSQL (new service addition — see infra)
+- [x] `GET /immunity-score` — returns current score + component breakdown
+- [x] `GET /immunity-score/history?days=30` — returns time series
+- [x] `GET /immunity-score/scenarios` — lists attack types tested + detection rate per type
 
 ### Scenario Coverage Report
-- [ ] `ScenarioCoverageReport` — generated daily by Airflow; lists:
+- [x] `ScenarioCoverageReport` — generated daily by Airflow (`scenario_coverage_dag.py`); lists:
   - Tested attack types (last 30 days)
   - Detection recall per type
   - Attack types NOT yet tested (coverage gaps)
   - Recommended scenarios to run next
 
 ### FastAPI Foundations
-- [ ] JWT authentication middleware (algorithm: HS256 per `CLAUDE.md §5`)
-- [ ] Tenant isolation: all queries scoped by `tenant_id` from JWT claims
-- [ ] Request/response logging with correlation IDs
-- [ ] OpenAPI docs auto-generated at `/docs`
+- [x] JWT authentication middleware (algorithm: HS256 per `CLAUDE.md §5`)
+- [x] Tenant isolation: all queries scoped by `tenant_id` from JWT claims
+- [x] Request/response logging with correlation IDs
+- [x] OpenAPI docs auto-generated at `/docs`
 
 ### Definition of Done
 - Immunity Score updates within 30 seconds of a completed red-team DAG run
