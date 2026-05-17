@@ -7,6 +7,7 @@ import AttackScenarioMap from "@/components/AttackScenarioMap";
 import FraudRingVisualizer from "@/components/FraudRingVisualizer";
 import AlertFeed from "@/components/AlertFeed";
 import RedTeamStatus from "@/components/RedTeamStatus";
+import NPSWidget from "@/components/NPSWidget";
 
 import {
   fetchImmunityScore,
@@ -93,7 +94,10 @@ export default async function DashboardPage() {
         <RedTeamStatus />
       </main>
 
-      {/* 8. Footer */}
+      {/* 8. NPS feedback widget — fixed bottom-right, client-side only */}
+      <NPSWidget tenantId={tenantId} />
+
+      {/* 9. Footer */}
       <footer
         style={{
           backgroundColor: "var(--primary)",
