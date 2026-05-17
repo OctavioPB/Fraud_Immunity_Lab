@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import health, metrics
-from api.routers import immunity_score
+from api.routers import immunity_score, auth, fraud_rings, alerts
 from api.middleware.auth import JWTAuthMiddleware
 from api.middleware.logging import RequestLoggingMiddleware
 
@@ -24,9 +24,9 @@ app = FastAPI(
     description=(
         "Internal services for the Sovereign Fraud Immunity Lab. "
         "Provides Immunity Score computation, scenario coverage reporting, "
-        "and Prometheus metrics."
+        "fraud ring visualization, real-time alert feed, and Prometheus metrics."
     ),
-    version="0.3.0",
+    version="0.4.0",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -45,13 +45,16 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(metrics.router)
+app.include_router(auth.router)
 app.include_router(immunity_score.router)
+app.include_router(fraud_rings.router)
+app.include_router(alerts.router)
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
     logger.info(
         "fraud_immunity_lab_api_started",
-        version="0.3.0",
+        version="0.4.0",
         jwt_auth_enabled=_AUTH_ENABLED,
     )

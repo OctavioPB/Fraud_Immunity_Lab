@@ -43,6 +43,8 @@ _EXEMPT_PATHS: frozenset[str] = frozenset(
         "/docs",
         "/redoc",
         "/openapi.json",
+        "/auth/token",
+        "/ws/alerts",
     }
 )
 
