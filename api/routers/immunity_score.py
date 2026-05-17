@@ -79,6 +79,7 @@ async def get_immunity_score(
     calculator: ScoreCalculator = Depends(get_calculator),
 ) -> ImmunityScoreResponse:
     tenant_id = get_tenant_id(request)
+    t0 = time.time()
 
     try:
         payload, cache_hit = calculator.get_score(tenant_id)
@@ -92,6 +93,15 @@ async def get_immunity_score(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Score computation temporarily unavailable. Retry in a moment.",
         )
+
+    elapsed = time.time() - t0
+    if not cache_hit:
+        try:
+            from api.observability import SCORE_COMPUTATION_SECONDS  # noqa: PLC0415
+
+            SCORE_COMPUTATION_SECONDS.labels(tenant_id=tenant_id).observe(elapsed)
+        except Exception:
+            pass
 
     components = ScoreComponents(**payload["components"])
 

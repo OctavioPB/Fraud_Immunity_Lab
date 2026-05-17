@@ -8,12 +8,15 @@ into the Pinecone `suspicious-profiles` index with `label: synthetic_fraud`.
 This gives the drift detector a reference corpus of known attack embeddings for
 nearest-neighbor classification (in addition to cosine distance from clean profiles).
 
+Multi-tenancy: all Pinecone calls pass `namespace=_pinecone_namespace(tenant_id)`.
+  - "default" tenant maps to namespace="" (Pinecone default namespace, legacy compat).
+
 Hard Rule #3: Every vector upserted here carries `synthetic: true` in metadata.
 Hard Rule #4: No raw PII in any Pinecone metadata — account IDs are tokenized.
 
 Usage:
     injector = SyntheticProfileInjector()
-    result = injector.inject_scenario_profile(scenario_dict)
+    result = injector.inject_scenario_profile(scenario_dict, tenant_id="acme")
 """
 
 import os
@@ -170,6 +173,7 @@ class SyntheticProfileInjector:
         scenario: dict[str, Any],
         *,
         dag_run_id: str | None = None,
+        tenant_id: str = "default",
     ) -> InjectionResult:
         """
         Embed a synthetic fraud scenario and upsert it to the suspicious-profiles index.
@@ -177,6 +181,7 @@ class SyntheticProfileInjector:
         Args:
             scenario: Scenario dict from the attacker agent (ScenarioConfig.model_dump()).
             dag_run_id: Optional DAG run ID for traceability.
+            tenant_id: Tenant namespace for Pinecone isolation. Defaults to "default".
 
         Returns:
             InjectionResult with upsert outcome.
@@ -198,16 +203,20 @@ class SyntheticProfileInjector:
             "label": "synthetic_fraud",
             "synthetic": "true",   # Hard Rule #3
             "origin": "red_team",
+            "tenant_id": tenant_id,
             "injected_at_ms": int(time.time() * 1000),
         }
         if dag_run_id:
             metadata["dag_run_id"] = dag_run_id
+
+        namespace = _pinecone_namespace(tenant_id)
 
         if self._dry_run:
             log.info(
                 "synthetic_profile_injection_dry_run",
                 scenario_id=scenario_id,
                 attack_type=attack_type,
+                tenant_id=tenant_id,
                 embedding_dim=len(vector),
                 synthetic=True,
             )
@@ -221,12 +230,14 @@ class SyntheticProfileInjector:
 
         try:
             index = self._get_index()
-            index.upsert(vectors=[(profile_vector_id, vector, metadata)])
+            index.upsert(vectors=[(profile_vector_id, vector, metadata)], namespace=namespace)
             log.info(
                 "synthetic_profile_upserted",
                 scenario_id=scenario_id,
                 attack_type=attack_type,
                 index=_PINECONE_INDEX_SUSPICIOUS,
+                namespace=namespace,
+                tenant_id=tenant_id,
                 synthetic=True,
             )
             return InjectionResult(
@@ -240,6 +251,7 @@ class SyntheticProfileInjector:
             log.error(
                 "synthetic_profile_upsert_failed",
                 scenario_id=scenario_id,
+                tenant_id=tenant_id,
                 error=str(exc),
             )
             return InjectionResult(
@@ -256,6 +268,7 @@ class SyntheticProfileInjector:
         scenarios: list[dict[str, Any]],
         *,
         dag_run_id: str | None = None,
+        tenant_id: str = "default",
     ) -> list[InjectionResult]:
         """
         Inject multiple synthetic scenario profiles.
@@ -263,17 +276,20 @@ class SyntheticProfileInjector:
         Args:
             scenarios: List of scenario dicts.
             dag_run_id: Optional DAG run ID for traceability.
+            tenant_id: Tenant namespace for Pinecone isolation.
 
         Returns:
             List of InjectionResult, one per scenario.
         """
         results: list[InjectionResult] = []
         for scenario in scenarios:
-            result = self.inject_scenario_profile(scenario, dag_run_id=dag_run_id)
+            result = self.inject_scenario_profile(
+                scenario, dag_run_id=dag_run_id, tenant_id=tenant_id
+            )
             results.append(result)
         return results
 
-    def delete_scenario_profile(self, scenario_id: str) -> bool:
+    def delete_scenario_profile(self, scenario_id: str, *, tenant_id: str = "default") -> bool:
         """
         Remove a synthetic profile from the index (e.g., for test cleanup).
 
@@ -284,6 +300,7 @@ class SyntheticProfileInjector:
             True if deletion was attempted (not in dry-run).
         """
         profile_vector_id = f"synthetic_{scenario_id}"
+        namespace = _pinecone_namespace(tenant_id)
         if self._dry_run:
             log.info(
                 "synthetic_profile_delete_dry_run",
@@ -293,8 +310,12 @@ class SyntheticProfileInjector:
 
         try:
             index = self._get_index()
-            index.delete(ids=[profile_vector_id])
-            log.info("synthetic_profile_deleted", profile_vector_id=profile_vector_id)
+            index.delete(ids=[profile_vector_id], namespace=namespace)
+            log.info(
+                "synthetic_profile_deleted",
+                profile_vector_id=profile_vector_id,
+                namespace=namespace,
+            )
             return True
         except Exception as exc:
             log.error(
@@ -303,3 +324,8 @@ class SyntheticProfileInjector:
                 error=str(exc),
             )
             return False
+
+
+def _pinecone_namespace(tenant_id: str) -> str:
+    """Return the Pinecone namespace for a tenant. 'default' maps to '' for legacy compat."""
+    return "" if tenant_id == "default" else tenant_id

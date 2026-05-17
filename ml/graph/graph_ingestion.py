@@ -65,6 +65,9 @@ class IngestionStats:
         return (self.total_written / elapsed) * 60.0
 
 
+_DEFAULT_TENANT_ID: str = os.getenv("DEFAULT_TENANT_ID", "default")
+
+
 class GraphIngestionConsumer:
     """
     Real-time Kafka consumer that writes events to Neo4j.
@@ -73,9 +76,15 @@ class GraphIngestionConsumer:
     Processes events one at a time; commits offset only after successful
     Neo4j write. Malformed events go to the dead-letter topic.
 
+    Multi-tenancy: each tenant gets its own Kafka consumer group
+    (`{_CONSUMER_GROUP}_{tenant_id}`) so lag metrics and offset management
+    are isolated per tenant.
+
     Args:
         driver: Neo4j driver instance. If None, creates one from env vars.
         tokenizer: PIITokenizer instance.
+        tenant_id: Tenant identifier. Used as Neo4j node property and Kafka
+            consumer group suffix for isolation. Defaults to "default".
         dry_run: If True, parses events but does not write to Neo4j.
     """
 
@@ -87,12 +96,16 @@ class GraphIngestionConsumer:
         driver: Any | None = None,
         tokenizer: PIITokenizer | None = None,
         *,
+        tenant_id: str = _DEFAULT_TENANT_ID,
         dry_run: bool = False,
     ) -> None:
         self._driver = driver
         self._tokenizer = tokenizer or PIITokenizer()
+        self._tenant_id = tenant_id
         self._dry_run = dry_run
         self._stats = IngestionStats()
+        # Per-tenant consumer group suffix ensures offset isolation
+        self._consumer_group = f"{_CONSUMER_GROUP}_{tenant_id}"
 
     # ── Neo4j driver (lazy) ────────────────────────────────────────────────────
 
@@ -142,6 +155,7 @@ class GraphIngestionConsumer:
             "synthetic": is_synthetic,
             "origin": metadata.get("origin", "live"),
             "segment": metadata.get("segment", "retail_banking"),
+            "tenant_id": self._tenant_id,
         }
 
     def _login_to_params(self, event: dict[str, Any]) -> dict[str, Any]:
@@ -172,6 +186,7 @@ class GraphIngestionConsumer:
             "synthetic": is_synthetic,
             "origin": metadata.get("origin", "live"),
             "segment": metadata.get("segment", "retail_banking"),
+            "tenant_id": self._tenant_id,
         }
 
     # ── Write operations ───────────────────────────────────────────────────────
@@ -257,7 +272,7 @@ class GraphIngestionConsumer:
         consumer = Consumer(
             {
                 "bootstrap.servers": _KAFKA_BOOTSTRAP,
-                "group.id": _CONSUMER_GROUP,
+                "group.id": self._consumer_group,
                 "auto.offset.reset": "earliest",
                 "enable.auto.commit": False,
             }
@@ -267,6 +282,8 @@ class GraphIngestionConsumer:
         log.info(
             "graph_ingestion_started",
             topics=[_TOPIC_TRANSACTIONS, _TOPIC_LOGINS],
+            consumer_group=self._consumer_group,
+            tenant_id=self._tenant_id,
             dry_run=self._dry_run,
         )
 

@@ -12,6 +12,10 @@ Staleness policy:
   - Profiles older than PROFILE_STALENESS_DAYS (default 30) emit a warning.
   - Nightly profile_refresh_dag triggers rebuilds for stale or high-volume accounts.
 
+Multi-tenancy: all Pinecone calls pass `namespace=_pinecone_namespace(tenant_id)`.
+  - "default" tenant maps to namespace="" (Pinecone default namespace, legacy compat).
+  - All other tenants use the tenant_id string as the Pinecone namespace.
+
 Hard Rule #4: All account identifiers are tokenized by PIITokenizer before
 any call to OpenAI or Pinecone.
 """
@@ -199,6 +203,8 @@ class ProfileBuilder:
         self,
         account_id: str,
         transactions: list[dict[str, Any]],
+        *,
+        tenant_id: str = "default",
     ) -> ProfileUpsertResult:
         """
         Build and upsert a behavioral profile for the given account.
@@ -206,6 +212,7 @@ class ProfileBuilder:
         Args:
             account_id: Raw account identifier (will be tokenized before use).
             transactions: List of clean transaction dicts from the account history.
+            tenant_id: Tenant namespace for Pinecone isolation. Defaults to "default".
 
         Returns:
             ProfileUpsertResult with upsert outcome and metadata.
@@ -218,6 +225,7 @@ class ProfileBuilder:
             log.warning(
                 "profile_build_skipped_no_transactions",
                 account_token=account_token,
+                tenant_id=tenant_id,
             )
             return ProfileUpsertResult(
                 account_token=account_token,
@@ -236,12 +244,14 @@ class ProfileBuilder:
             "label": "legitimate",
             "last_updated": int(time.time() * 1000),
             "transaction_count": transaction_count,
+            "tenant_id": tenant_id,
         }
 
         if self._dry_run:
             log.info(
                 "profile_build_dry_run",
                 account_token=account_token,
+                tenant_id=tenant_id,
                 transaction_count=transaction_count,
                 embedding_dim=len(vector),
             )
@@ -253,13 +263,16 @@ class ProfileBuilder:
                 transaction_count=transaction_count,
             )
 
+        namespace = _pinecone_namespace(tenant_id)
         try:
             index = self._get_index()
-            index.upsert(vectors=[(account_token, vector, metadata)])
+            index.upsert(vectors=[(account_token, vector, metadata)], namespace=namespace)
             log.info(
                 "profile_upserted",
                 account_token=account_token,
                 index=_PINECONE_INDEX_CLEAN,
+                namespace=namespace,
+                tenant_id=tenant_id,
                 transaction_count=transaction_count,
             )
             return ProfileUpsertResult(
@@ -273,6 +286,7 @@ class ProfileBuilder:
             log.error(
                 "profile_upsert_failed",
                 account_token=account_token,
+                tenant_id=tenant_id,
                 error=str(exc),
             )
             return ProfileUpsertResult(
@@ -287,36 +301,43 @@ class ProfileBuilder:
     def build_profiles_batch(
         self,
         accounts: list[tuple[str, list[dict[str, Any]]]],
+        *,
+        tenant_id: str = "default",
     ) -> list[ProfileUpsertResult]:
         """
         Build and upsert profiles for multiple accounts.
 
         Args:
             accounts: List of (account_id, transactions) tuples.
+            tenant_id: Tenant namespace for Pinecone isolation.
 
         Returns:
             List of ProfileUpsertResult, one per account.
         """
         results: list[ProfileUpsertResult] = []
         for account_id, transactions in accounts:
-            result = self.build_profile(account_id, transactions)
+            result = self.build_profile(account_id, transactions, tenant_id=tenant_id)
             results.append(result)
         return results
 
     def check_staleness(
         self,
         account_id: str,
+        *,
+        tenant_id: str = "default",
     ) -> dict[str, Any]:
         """
         Query Pinecone to check if a profile exists and whether it is stale.
 
         Args:
             account_id: Raw account identifier (will be tokenized).
+            tenant_id: Tenant namespace for Pinecone isolation.
 
         Returns:
             {exists, stale, last_updated_ms, age_days, account_token}
         """
         account_token = self._tokenizer.tokenize(account_id)
+        namespace = _pinecone_namespace(tenant_id)
 
         if self._dry_run:
             return {
@@ -329,7 +350,7 @@ class ProfileBuilder:
 
         try:
             index = self._get_index()
-            result = index.fetch(ids=[account_token])
+            result = index.fetch(ids=[account_token], namespace=namespace)
             vectors = result.get("vectors", {})
 
             if account_token not in vectors:
@@ -376,3 +397,8 @@ class ProfileBuilder:
                 "account_token": account_token,
                 "error": str(exc),
             }
+
+
+def _pinecone_namespace(tenant_id: str) -> str:
+    """Return the Pinecone namespace for a tenant. 'default' maps to '' for legacy compat."""
+    return "" if tenant_id == "default" else tenant_id

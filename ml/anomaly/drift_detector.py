@@ -13,6 +13,15 @@ A transaction is flagged when:
   - Its cosine distance from the clean profile exceeds `threshold` (drift), OR
   - Its similarity to a suspicious profile exceeds `suspicion_threshold`.
 
+Multi-tenancy: all Pinecone calls pass `namespace=_pinecone_namespace(tenant_id)`.
+  - "default" tenant maps to namespace="" (Pinecone default namespace, legacy compat).
+
+Redis cache (clean-profile vectors):
+  - Key: `drift_profile:{tenant_id}:{account_token}`
+  - TTL: DRIFT_PROFILE_CACHE_TTL_S (default 300s / 5 min)
+  - On cache hit: skip Pinecone fetch, compute cosine similarity locally.
+  - On cache miss: fetch from Pinecone, store serialized vector in Redis.
+
 Threshold configuration:
   - Default: 0.85 cosine similarity (i.e., distance > 0.15 triggers flag).
   - High-value account segment: 0.90 (more conservative — fewer false negatives).
@@ -25,6 +34,7 @@ DriftResult:
   - nearest_neighbors: list of top-k Pinecone matches with scores
 """
 
+import json
 import math
 import os
 import time
@@ -44,6 +54,8 @@ _PINECONE_INDEX_CLEAN: str = os.getenv("PINECONE_INDEX_CLEAN", "clean-profiles")
 _PINECONE_INDEX_SUSPICIOUS: str = os.getenv(
     "PINECONE_INDEX_SUSPICIOUS", "suspicious-profiles"
 )
+_REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+_CACHE_TTL_S: int = int(os.getenv("DRIFT_PROFILE_CACHE_TTL_S", "300"))
 
 
 class AccountSegment(str, Enum):
@@ -99,21 +111,25 @@ class DriftDetector:
 
     Args:
         pinecone_api_key: Pinecone API key. Falls back to `PINECONE_API_KEY` env var.
+        redis_url: Redis URL for profile vector cache. Falls back to `REDIS_URL` env var.
         top_k: Number of nearest neighbors to retrieve from each index.
     """
 
     def __init__(
         self,
         pinecone_api_key: str | None = None,
+        redis_url: str | None = None,
         *,
         top_k: int = _TOP_K,
     ) -> None:
         self._pc_key = pinecone_api_key or os.getenv("PINECONE_API_KEY", "")
+        self._redis_url = redis_url or _REDIS_URL
         self._top_k = top_k
         self._clean_index: Any | None = None
         self._suspicious_index: Any | None = None
+        self._redis: Any | None = None
 
-    # ── Pinecone connections (lazy) ────────────────────────────────────────────
+    # ── Connections (lazy) ─────────────────────────────────────────────────────
 
     def _get_clean_index(self) -> Any:
         if self._clean_index is not None:
@@ -138,6 +154,70 @@ class DriftDetector:
         except ImportError:
             raise RuntimeError("pinecone-client not installed.")
         return self._suspicious_index
+
+    def _get_redis(self) -> Any | None:
+        if self._redis is not None:
+            return self._redis
+        try:
+            import redis as redis_lib  # type: ignore[import]
+
+            self._redis = redis_lib.from_url(self._redis_url, decode_responses=True)
+        except Exception:
+            return None
+        return self._redis
+
+    # ── Redis-cached clean profile vector fetch ────────────────────────────────
+
+    def _fetch_clean_profile_vector(
+        self,
+        account_token: str,
+        namespace: str,
+    ) -> list[float] | None:
+        """
+        Return the clean profile vector for account_token, using Redis as a cache.
+
+        Cache key: drift_profile:{namespace or 'default'}:{account_token}
+        TTL: DRIFT_PROFILE_CACHE_TTL_S (default 300s)
+
+        Returns None if the profile does not exist in Pinecone.
+        """
+        ns_key = namespace if namespace else "default"
+        cache_key = f"drift_profile:{ns_key}:{account_token}"
+
+        r = self._get_redis()
+        if r is not None:
+            try:
+                cached = r.get(cache_key)
+                if cached is not None:
+                    log.debug("drift_profile_cache_hit", account_token=account_token)
+                    return json.loads(cached)
+            except Exception as exc:
+                log.warning("drift_profile_cache_read_error", error=str(exc))
+
+        # Cache miss — fetch from Pinecone
+        try:
+            index = self._get_clean_index()
+            result = index.fetch(ids=[account_token], namespace=namespace)
+            vectors = result.get("vectors", {})
+            if account_token not in vectors:
+                return None
+            vector: list[float] = vectors[account_token]["values"]
+        except Exception as exc:
+            log.warning(
+                "drift_profile_pinecone_fetch_failed",
+                account_token=account_token,
+                error=str(exc),
+            )
+            return None
+
+        if r is not None:
+            try:
+                r.set(cache_key, json.dumps(vector), ex=_CACHE_TTL_S)
+                log.debug("drift_profile_cache_set", account_token=account_token)
+            except Exception as exc:
+                log.warning("drift_profile_cache_write_error", error=str(exc))
+
+        return vector
 
     # ── Vector math ────────────────────────────────────────────────────────────
 
@@ -171,33 +251,41 @@ class DriftDetector:
         embedding: list[float],
         account_token: str,
         top_k: int,
+        namespace: str = "",
     ) -> tuple[float, list[NeighborMatch]]:
         """
-        Query clean-profiles for the user's own profile and top-k neighbors.
+        Compute personal drift score using a Redis-cached profile vector, and
+        return top-k nearest neighbors from Pinecone.
+
+        The personal score is computed via local cosine similarity against the
+        cached profile vector — skipping a redundant Pinecone query per request.
 
         Returns:
-            (personal_score, neighbors) — personal_score is the similarity to the
-            account's own profile vector (0.0 if not found).
+            (personal_score, neighbors) — personal_score is 0.0 if no profile found.
         """
+        profile_vector = self._fetch_clean_profile_vector(account_token, namespace)
+        personal_score = 0.0
+        if profile_vector is not None:
+            personal_score = self.cosine_similarity(embedding, profile_vector)
+
+        # Top-k neighbors still queried from Pinecone for explainability
         index = self._get_clean_index()
         result = index.query(
             vector=embedding,
             top_k=top_k,
             include_metadata=True,
-            filter=None,
+            namespace=namespace,
         )
 
         matches = result.get("matches", [])
-        neighbors: list[NeighborMatch] = []
-        personal_score = 0.0
-
-        for match in matches:
-            vid = match.get("id", "")
-            score = float(match.get("score", 0.0))
-            meta = match.get("metadata", {})
-            neighbors.append(NeighborMatch(vector_id=vid, score=score, metadata=meta))
-            if vid == account_token:
-                personal_score = score
+        neighbors: list[NeighborMatch] = [
+            NeighborMatch(
+                vector_id=m.get("id", ""),
+                score=float(m.get("score", 0.0)),
+                metadata=m.get("metadata", {}),
+            )
+            for m in matches
+        ]
 
         return personal_score, neighbors
 
@@ -205,6 +293,7 @@ class DriftDetector:
         self,
         embedding: list[float],
         top_k: int,
+        namespace: str = "",
     ) -> tuple[float, list[NeighborMatch]]:
         """
         Query suspicious-profiles for known fraud pattern matches.
@@ -217,6 +306,7 @@ class DriftDetector:
             vector=embedding,
             top_k=top_k,
             include_metadata=True,
+            namespace=namespace,
         )
 
         matches = result.get("matches", [])
@@ -242,6 +332,7 @@ class DriftDetector:
         transaction_embedding: list[float],
         *,
         account_segment: str | None = None,
+        tenant_id: str = "default",
     ) -> DriftResult:
         """
         Run drift detection for a single transaction embedding.
@@ -252,25 +343,28 @@ class DriftDetector:
             transaction_id: UUID of the transaction being evaluated.
             transaction_embedding: OpenAI embedding of the transaction text.
             account_segment: Account segment string for threshold selection.
+            tenant_id: Tenant namespace for Pinecone isolation and Redis cache.
 
         Returns:
             DriftResult with score, flagged status, drift type, and neighbors.
         """
         start_ms = int(time.time() * 1000)
         threshold = self.get_threshold(account_segment)
+        namespace = _pinecone_namespace(tenant_id)
 
         try:
             personal_score, clean_neighbors = self._query_clean_index(
-                transaction_embedding, account_token, self._top_k
+                transaction_embedding, account_token, self._top_k, namespace
             )
             max_suspicious_score, suspicious_neighbors = self._query_suspicious_index(
-                transaction_embedding, self._top_k
+                transaction_embedding, self._top_k, namespace
             )
         except Exception as exc:
             log.error(
                 "drift_detection_query_failed",
                 account_token=account_token,
                 transaction_id=transaction_id,
+                tenant_id=tenant_id,
                 error=str(exc),
             )
             raise
@@ -311,6 +405,7 @@ class DriftDetector:
             "drift_detection_result",
             account_token=account_token,
             transaction_id=transaction_id,
+            tenant_id=tenant_id,
             score=round(personal_score, 4),
             flagged=flagged,
             drift_type=drift_type,
@@ -323,6 +418,8 @@ class DriftDetector:
     def detect_batch(
         self,
         evaluations: list[dict[str, Any]],
+        *,
+        tenant_id: str = "default",
     ) -> list[DriftResult]:
         """
         Run drift detection for multiple transactions.
@@ -330,6 +427,7 @@ class DriftDetector:
         Args:
             evaluations: List of dicts, each with keys:
                 {account_token, transaction_id, transaction_embedding, account_segment (optional)}
+            tenant_id: Tenant namespace for Pinecone isolation and Redis cache.
 
         Returns:
             List of DriftResult, one per evaluation.
@@ -341,6 +439,7 @@ class DriftDetector:
                 transaction_id=ev["transaction_id"],
                 transaction_embedding=ev["transaction_embedding"],
                 account_segment=ev.get("account_segment"),
+                tenant_id=tenant_id,
             )
             results.append(result)
         return results
@@ -374,3 +473,8 @@ class DriftDetector:
                 for n in result.nearest_suspicious_neighbors[:3]
             ],
         }
+
+
+def _pinecone_namespace(tenant_id: str) -> str:
+    """Return the Pinecone namespace for a tenant. 'default' maps to '' for legacy compat."""
+    return "" if tenant_id == "default" else tenant_id
