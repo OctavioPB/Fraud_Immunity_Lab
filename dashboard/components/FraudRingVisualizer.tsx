@@ -172,7 +172,7 @@ export default function FraudRingVisualizer({ rings }: Props) {
               fontFamily: "'Fraunces', Georgia, serif",
               fontSize: 22,
               fontWeight: 300,
-              color: "#0a1628",
+              color: "var(--dark)",
               margin: "0 0 4px",
               lineHeight: 1.25,
             }}
@@ -372,7 +372,7 @@ export default function FraudRingVisualizer({ rings }: Props) {
             <div
               style={{
                 height: 3,
-                backgroundColor: ringColor(selectedRing.risk_score),
+                backgroundColor: "var(--gold)",
               }}
             />
             <div style={{ padding: "20px 20px 24px" }}>

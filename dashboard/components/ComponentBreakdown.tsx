@@ -106,7 +106,7 @@ export default function ComponentBreakdown({ components }: Props) {
           fontFamily: "'Fraunces', Georgia, serif",
           fontSize: 22,
           fontWeight: 300,
-          color: "#0a1628",
+          color: "var(--dark)",
           margin: "0 0 4px",
           lineHeight: 1.25,
         }}

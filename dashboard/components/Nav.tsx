@@ -2,12 +2,13 @@
 
 import { logout, getTenantId } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 interface NavProps {
   tenantId: string;
 }
 
-const NAV_LINKS = [
+const SECTION_LINKS = [
   { label: "Score", href: "#score" },
   { label: "Scenarios", href: "#scenarios" },
   { label: "Rings", href: "#rings" },
@@ -15,19 +16,32 @@ const NAV_LINKS = [
   { label: "Red-Team", href: "#redteam" },
 ];
 
+const PAGE_LINKS = [
+  { label: "Info", href: "/info" },
+];
+
 export default function Nav({ tenantId }: NavProps) {
-  const [active, setActive] = useState<string>("#score");
+  const [activeHash, setActiveHash] = useState<string>("#score");
   const [clientTenantId, setClientTenantId] = useState(tenantId);
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
-    // Sync from cookie in case it differs from the server-rendered value
     setClientTenantId(getTenantId() || tenantId);
   }, [tenantId]);
 
+  const isInfoPage = pathname === "/info";
+
   function handleNavClick(href: string) {
-    setActive(href);
-    const el = document.getElementById(href.slice(1));
-    el?.scrollIntoView({ behavior: "smooth" });
+    if (href.startsWith("/")) {
+      router.push(href);
+    } else if (isInfoPage) {
+      // Navigate from info page to dashboard section
+      window.location.href = "/" + href;
+    } else {
+      setActiveHash(href);
+      document.getElementById(href.slice(1))?.scrollIntoView({ behavior: "smooth" });
+    }
   }
 
   return (
@@ -54,7 +68,7 @@ export default function Nav({ tenantId }: NavProps) {
               fontFamily: "'Fraunces', Georgia, serif",
               fontSize: 20,
               fontWeight: 300,
-              color: "#ffffff",
+              color: "var(--white)",
             }}
           >
             O
@@ -91,17 +105,20 @@ export default function Nav({ tenantId }: NavProps) {
 
       {/* Nav links */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        {NAV_LINKS.map(({ label, href }) => {
-          const isActive = active === href;
+        {SECTION_LINKS.map(({ label, href }) => {
+          const isActive = !isInfoPage && activeHash === href;
           return (
             <button
               key={href}
               onClick={() => handleNavClick(href)}
               style={{
                 background: "none",
+                backgroundColor: isActive ? "rgba(201,168,76,0.12)" : "transparent",
                 border: "none",
                 color: isActive
                   ? "var(--gold-light)"
+                  : isInfoPage
+                  ? "rgba(255,255,255,0.25)"
                   : "rgba(255,255,255,0.45)",
                 cursor: "pointer",
                 fontFamily: "var(--fb)",
@@ -110,10 +127,36 @@ export default function Nav({ tenantId }: NavProps) {
                 textTransform: "uppercase",
                 padding: "5px 8px",
                 borderRadius: 6,
-                transition: "color 0.15s",
-                ...(isActive
-                  ? { backgroundColor: "rgba(201,168,76,0.12)" }
-                  : {}),
+                transition: "color 0.15s, background-color 0.15s",
+              }}
+            >
+              {label}
+            </button>
+          );
+        })}
+
+        {/* Separator */}
+        <div style={{ width: 1, height: 16, backgroundColor: "rgba(255,255,255,0.12)", margin: "0 4px" }} />
+
+        {PAGE_LINKS.map(({ label, href }) => {
+          const isActive = pathname === href;
+          return (
+            <button
+              key={href}
+              onClick={() => handleNavClick(href)}
+              style={{
+                background: "none",
+                backgroundColor: isActive ? "rgba(201,168,76,0.12)" : "transparent",
+                border: isActive ? "none" : "1px solid rgba(255,255,255,0.12)",
+                color: isActive ? "var(--gold-light)" : "rgba(255,255,255,0.55)",
+                cursor: "pointer",
+                fontFamily: "var(--fb)",
+                fontSize: 9,
+                letterSpacing: "2px",
+                textTransform: "uppercase",
+                padding: "5px 8px",
+                borderRadius: 6,
+                transition: "color 0.15s, background-color 0.15s",
               }}
             >
               {label}

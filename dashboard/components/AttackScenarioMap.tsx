@@ -33,8 +33,8 @@ function Rule6Badge({
           display: "inline-flex",
           alignItems: "center",
           gap: 6,
-          backgroundColor: "#f1f5f9",
-          color: "#94a3b8",
+          backgroundColor: "var(--primary-10)",
+          color: "var(--mid)",
           borderRadius: 20,
           padding: "3px 10px",
           fontSize: 10,
@@ -78,7 +78,7 @@ function Rule6Badge({
 function RecallBar({ recall }: { recall: number | null | undefined }) {
   if (recall === null || recall === undefined) {
     return (
-      <span style={{ color: "#94a3b8", fontFamily: "var(--fb)", fontSize: 12 }}>
+      <span style={{ color: "var(--mid)", fontFamily: "var(--fb)", fontSize: 12 }}>
         —
       </span>
     );
@@ -263,7 +263,7 @@ export default function AttackScenarioMap({ coverage }: Props) {
               fontFamily: "'Fraunces', Georgia, serif",
               fontSize: 22,
               fontWeight: 300,
-              color: "#0a1628",
+              color: "var(--dark)",
               margin: "0 0 4px",
               lineHeight: 1.25,
             }}

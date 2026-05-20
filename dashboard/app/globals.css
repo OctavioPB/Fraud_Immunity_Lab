@@ -1,18 +1,59 @@
 /* OPB Design System — CSS Variables */
 :root {
-  --primary: #003366;
+  /* Colour — brand */
+  --primary:    #003366;
   --primary-80: #1a4d80;
   --primary-60: #336699;
   --primary-30: #99bbdd;
   --primary-10: #e0eaf4;
-  --gold: #c8982a;
+  --gold:       #c8982a;
   --gold-light: #e8c46a;
-  --dark: #1c1c2e;
-  --mid: #6b7280;
-  --light: #f4f6f9;
-  --white: #ffffff;
+  --dark:       #1c1c2e;
+  --mid:        #6b7280;
+  --light:      #f4f6f9;
+  --white:      #ffffff;
+
+  /* Colour — semantic status */
+  --status-green:  #27b97c;
+  --status-red:    #e03448;
+  --status-orange: #f07020;
+  --status-purple: #7c4dbd;
+  --status-blue:   #003366;
+
+  /* Typography */
   --fd: "Fraunces", Georgia, serif;
   --fb: "Plus Jakarta Sans", sans-serif;
+
+  /* Spacing (8-point grid) */
+  --space-4:  4px;  --space-8:  8px;  --space-12: 12px;
+  --space-16: 16px; --space-24: 24px; --space-32: 32px;
+  --space-40: 40px; --space-48: 48px; --space-64: 64px;
+
+  /* Border radius */
+  --radius-sm:   6px;
+  --radius-md:   12px;
+  --radius-lg:   14px;
+  --radius-pill: 20px;
+
+  /* Shadows */
+  --shadow-card: 0 1px 4px rgba(0, 51, 102, 0.08);
+  --shadow-soft: 0 1px 6px rgba(0, 51, 102, 0.09);
+
+  /* Layout */
+  --max-width-content:   1200px;
+  --max-width-dashboard: 1300px;
+  --nav-height: 52px;
+}
+
+/* Dark mode — only light/white/dark/mid surfaces change; navy, gold, status colours stay */
+html[data-theme="dark"] {
+  --light:      #0f1117;
+  --white:      #1a1d27;
+  --dark:       #e2e8f0;
+  --mid:        #8b9099;
+  --primary-10: rgba(255, 255, 255, 0.07);
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 
 *,

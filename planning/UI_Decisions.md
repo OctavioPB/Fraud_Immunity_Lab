@@ -1,8 +1,8 @@
-# UI Decisions — Synthetic Persona Sandbox
+# UI Decisions — OPB Design System
 
-> This document captures every design and engineering decision made for the Synthetic Persona
-> Sandbox dashboard. It serves as a reference for maintaining the existing UI and as a migration
-> guide for applying the same system to any new application.
+> This document captures every design and engineering decision for the **OPB design system**
+> (Octavio Pérez Bravo). It is the authoritative reference for maintaining any OPB-branded
+> dashboard and the migration guide for applying the system to new applications.
 
 ---
 
@@ -28,11 +28,11 @@
 ## 1. Philosophy
 
 The visual identity is **OPB** — Octavio Pérez Bravo, Data & AI Strategy Architect. The design
-goal is described as:
+goal is:
 
 > "Corporate authority without excess decoration. Technical precision + executive clarity."
 
-This translates into three practical rules applied everywhere in the dashboard:
+This translates into three practical rules applied everywhere:
 
 **Restraint over decoration.** No gradients on fills, no shadows heavier than `0 1px 6px`,
 no rounded corners above `14px`. Every decorative element — the gold eyebrow line, the grid
@@ -44,9 +44,9 @@ Fraunces (a variable serif) handles titles and display text. Plus Jakarta Sans h
 interface copy, labels, and data. Weight and size variation within these two fonts eliminates
 the need for colour-based hierarchy beyond a handful of defined tokens.
 
-**Colour signals meaning, not style.** The primary navy (#003366) and gold (#c8982a) are brand
-colours. All other colours in the system are semantic — green for success, orange for warning,
-red for error. Using a colour outside this system requires explicit justification.
+**Colour signals meaning, not style.** The primary navy (`#003366`) and gold (`#c8982a`) are
+brand colours. All other colours in the system are semantic — green for success, orange for
+warning, red for error. Using a colour outside this system requires explicit justification.
 
 **Navy is dominant; gold is the only structural accent.** Navy fills backgrounds, hero sections,
 table headers, and primary text. Gold marks structural accent lines (card `borderTop`, stat
@@ -60,63 +60,63 @@ only when the data demands them.
 
 ## 2. Technology Choices
 
-### React 18 + TypeScript
+### React + TypeScript
 
-React 18 is used because concurrent rendering and the hooks model support the real-time
-WebSocket update pattern (simulation progress streaming) without class component lifecycle
-management. Functional components only — no class components exist anywhere in the codebase.
+React is used because concurrent rendering and the hooks model support real-time update
+patterns (WebSocket streams, live dashboards) without class component lifecycle management.
+Functional components only — no class components exist anywhere in the codebase.
 
 TypeScript strict mode (`"strict": true`) is required. Every API response, store slice, and
-component prop is statically typed. This is not optional hygiene — a class of bugs (the
-`stimulus_type` / `latency_ms` mismatch in the analytics page that caused blank tab renders)
-was caused directly by an interface that did not match the actual API response shape. Strict
-typing would have caught it at compile time.
+component prop is statically typed. A field mismatch between an interface and the actual API
+response shape produces `undefined` at runtime but passes TypeScript's type checker — strict
+typing and exact interface matching catch this class of bug at compile time.
 
-### Vite 5
+### Next.js (App Router) — or Vite for SPAs
 
-Chosen over webpack/CRA for native ESM in development. Hot module replacement completes in
-50–200ms instead of full rebundling. The proxy configuration in `vite.config.ts` forwards
-`/api/*` and `/ws/*` to the FastAPI backend, so the frontend makes same-origin requests during
-development and there is no CORS issue in browser.
+For server-rendered apps use **Next.js 15+** (App Router). For pure client-side SPAs use
+**Vite 5**. The proxy configuration forwards `/api/*` and `/ws/*` to the backend:
 
 ```ts
-// vite.config.ts — proxy section
+// vite.config.ts — proxy section (SPA only)
 proxy: {
-  '/api': { target: 'http://localhost:8001', changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, '') },
-  '/ws':  { target: 'ws://localhost:8001',  ws: true },
+  '/api': { target: 'http://localhost:8000', changeOrigin: true, rewrite: (path) => path.replace(/^\/api/, '') },
+  '/ws':  { target: 'ws://localhost:8000',  ws: true },
 }
 ```
 
+For Next.js, server-side fetches use the internal Docker/service URL (`http://service:port`);
+client-side fetches use `NEXT_PUBLIC_API_URL` (the public-facing URL).
+
 ### Zustand (state management)
 
-Redux would be over-engineered for this scope. Zustand has no Provider wrapping, no action
-creators, and no reducers. Two stores exist:
+Redux is over-engineered for typical dashboard scope. Zustand has no Provider wrapping, no
+action creators, and no reducers. Standard stores to create per project:
 
 - `authStore` — holds the JWT token, user object (`email`, `role`), and `clearAuth()`
-- `campaignStore` — holds the campaign launcher form state across the multi-step flow
+- Any domain-specific form or wizard store for multi-step flows
 
 All other state is local to the component via `useState`. Data fetching is done directly with
-`useEffect` + the `api` service, not via a caching layer like React Query. This is appropriate
-for the current data volume and update frequency.
+`useEffect` + the `api` service layer unless the project's data volume and update frequency
+warrant a caching library like React Query.
 
 ### No external UI library
 
 No Shadcn, no MUI, no Ant Design. All components are written from scratch using inline styles
-and the design token system. This was a deliberate choice to maintain full design fidelity to
-the OPB brand system without fighting against a third-party component library's opinions on
-spacing, colour, or typography.
+and the design token system. This maintains full design fidelity to the OPB brand system
+without fighting against a third-party component library's opinions on spacing, colour, or
+typography.
 
 ---
 
 ## 3. Design Tokens
 
-All values live in `dashboard/src/styles/tokens.css` as CSS custom properties. **No value is
-ever hardcoded anywhere else in the application.** Using a raw hex colour in a component is
-a bug.
+All values live in `src/styles/globals.css` (or `tokens.css`) as CSS custom properties.
+**No value is ever hardcoded anywhere else in the application.** Using a raw hex colour in
+a component is a bug.
 
 ```css
 :root {
-  /* Colour */
+  /* Colour — brand */
   --primary:    #003366;   /* Navy — primary brand + nav background */
   --primary-80: #1a4d80;   /* Navy 80% — hover states, secondary headers */
   --primary-60: #336699;   /* Navy 60% — links, mid-weight accents */
@@ -129,12 +129,19 @@ a bug.
   --light:      #f4f6f9;   /* Off-white — page background, card backgrounds */
   --white:      #ffffff;   /* Pure white — card surfaces */
 
+  /* Colour — semantic status */
+  --status-green:  #27b97c;   /* Completed, positive, on-track */
+  --status-red:    #e03448;   /* Error, alert, critical */
+  --status-orange: #f07020;   /* Warning, pending, at-risk */
+  --status-purple: #7c4dbd;   /* Analytics, projections, AI */
+  --status-blue:   #003366;   /* Primary, corporate default */
+
   /* Typography */
   --fd: 'Fraunces', Georgia, serif;       /* Display / titles */
   --fb: 'Plus Jakarta Sans', sans-serif;  /* Interface / body */
 
-  /* Spacing */
-  --space-4: 4px;   --space-8: 8px;   --space-12: 12px;
+  /* Spacing (8-point grid) */
+  --space-4:  4px;  --space-8:  8px;  --space-12: 12px;
   --space-16: 16px; --space-24: 24px; --space-32: 32px;
   --space-40: 40px; --space-48: 48px; --space-64: 64px;
 
@@ -149,32 +156,30 @@ a bug.
   --shadow-soft: 0 1px 6px rgba(0, 51, 102, 0.09);
 
   /* Layout */
-  --max-width-content:   1200px;   /* Info / content-heavy pages */
-  --max-width-dashboard: 1300px;   /* Data dashboard pages */
+  --max-width-content:   1200px;   /* Reading-oriented pages */
+  --max-width-dashboard: 1300px;   /* Data-heavy dashboard pages */
   --nav-height: 52px;
 }
 ```
 
-### Semantic status colours
+### Semantic status colour variants
 
-These are defined in tokens and always used for their assigned meaning:
+Each status colour has a `*-bg` (light background) and `*-text` (readable text on white)
+variant for use in badges and pills. These are not CSS custom properties — they are hardcoded
+in badge style objects because they are always used as matched pairs:
 
-| Token | Hex | Use |
-|---|---|---|
-| `--status-green` | `#27b97c` | Completed, positive, on-track |
-| `--status-red` | `#e03448` | Error, alert, critical |
-| `--status-orange` | `#f07020` | Warning, pending, at-risk |
-| `--status-purple` | `#7c4dbd` | Analytics, projections, AI |
-| `--status-blue` | `#003366` | Primary, corporate default |
-
-Each semantic colour has a `*-bg` (light background) and `*-text` (readable text on white)
-variant for use in badges and pills.
+| Signal | Dot / bar | Badge bg | Badge text |
+|---|---|---|---|
+| Success / healthy | `#27b97c` | `#E0F7EF` | `#0D5C3A` |
+| Warning / pending | `#f07020` | `#FEF0E6` | `#7A3800` |
+| Error / critical  | `#e03448` | `#FDEAEA` | `#7A1020` |
+| Running / info    | `#003366` | `#E0EAF4` | `#001F4D` |
 
 ---
 
 ## 4. Typography System
 
-Two fonts are loaded via a single Google Fonts `<link>` in `index.html`:
+Two fonts are loaded via a single Google Fonts `<link>` in the document `<head>`:
 
 ```html
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -221,11 +226,11 @@ title is wrapped in `<em>` with `fontStyle: 'italic'` and `color: 'var(--gold-li
 is the single most identifiable visual element of the OPB brand system.
 
 ```jsx
-// Correct
-<h1>Simulate before you <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>spend.</em></h1>
+// Hero title
+<h1>Build before you <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>ship.</em></h1>
 
-// Also used in section sub-titles
-<h2>Database <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>controls</em></h2>
+// Section sub-title
+<h2>Data <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>insights</em></h2>
 ```
 
 ---
@@ -237,7 +242,7 @@ is the single most identifiable visual element of the OPB brand system.
 | Token | Where |
 |---|---|
 | `var(--primary)` | Nav background, hero backgrounds, table `<thead>` background |
-| `var(--primary-80)` | Rarely used; available for hover on dark surfaces |
+| `var(--primary-80)` | Hover on dark surfaces |
 | `var(--primary-60)` | Links, mid-weight code labels, stack table accents |
 | `var(--primary-30)` | Diagram arrows, decorative borders, ghosted elements |
 | `var(--primary-10)` | Card background alternate, table row stripes, divider lines |
@@ -249,16 +254,22 @@ is the single most identifiable visual element of the OPB brand system.
 | `var(--gold)` | Eyebrow lines and text, `borderLeft` on hero stat cards (always 2–3px), `borderTop` on KPI/score cards (always 3px), accent bars, left-border callouts |
 | `var(--gold-light)` | Active nav links, hero italic words, stat values on dark backgrounds |
 
-Gold is never used as a button background except for primary action buttons (`primaryBtn`),
-where it signals the highest-priority action on the page.
+Gold is never used as a button background except for primary action buttons, where it signals
+the highest-priority action on the page.
 
-**`borderLeft` rule:** Every stat card rendered inside a hero section uses `borderLeft: '2px solid var(--gold)'` — no exceptions. Status colours are never used for this structural accent, regardless of the metric's risk level.
+**`borderLeft` rule:** Every stat card rendered inside a hero section uses
+`borderLeft: '2px solid var(--gold)'` — no exceptions. Status colours are never used for
+this structural accent, regardless of the metric's risk level.
 
-**`borderTop` rule:** Every KPI card and score card in the body uses `borderTop: '3px solid var(--gold)'` — no exceptions. If the metric value represents a critical risk (e.g., attrition probability, budget overrun), the *value text* colour may contextually use a status colour (e.g., `var(--status-red)`). The border itself always stays gold.
+**`borderTop` rule:** Every KPI card and score card in the body uses
+`borderTop: '3px solid var(--gold)'` — no exceptions. If the metric value represents a
+critical risk, the *value text* colour may contextually use a status colour. The border
+itself always stays gold.
 
 ### Data visualisation series
 
-When multiple data series need distinct colours in charts, use the navy gradient sequence, with gold reserved for the highest-impact or highlight series:
+When multiple data series need distinct colours in charts, use the navy gradient sequence,
+with gold reserved for the highest-impact or highlight series:
 
 1. `#003366` — navy (primary, dominant)
 2. `#1a4d80` — navy 80%
@@ -267,9 +278,15 @@ When multiple data series need distinct colours in charts, use the navy gradient
 5. `#99bbdd` — navy 30% (lightest)
 6. `#c8982a` — gold (highlight / top bucket / emphasis only)
 
-**Do not use green, purple, orange, or pink for categorical chart series.** Those are semantic status colours — their presence in a chart implies a specific meaning (success, analytics, warning, error). Using them as arbitrary data series creates false associations. The navy gradient provides sufficient visual distinction for 3–5 series; gold marks the one series that deserves emphasis.
+**Do not use green, purple, orange, or pink for categorical chart series.** Those are semantic
+status colours — their presence in a chart implies a specific meaning (success, analytics,
+warning, error). Using them as arbitrary data series creates false associations. The navy
+gradient provides sufficient visual distinction for 3–5 series; gold marks the one series
+that deserves emphasis.
 
-For SVG charts specifically: `fill=""` and `stroke=""` attributes cannot use CSS custom properties. Use the raw hex values from the series above. Any hex value not in this list is a bug.
+For SVG charts specifically: `fill=""` and `stroke=""` attributes cannot use CSS custom
+properties. Use the raw hex values from the series above. Any hex value not in this list is
+a bug.
 
 ### Color hierarchy and restriction rules
 
@@ -281,7 +298,10 @@ Three tiers, strict priority:
 | **2 — Gold (structural accent)** | `--gold`, `--gold-light` | Accent-only: eyebrow bars, `borderLeft` on stat cards, `borderTop` on KPI cards, active states, primary action button |
 | **3 — Status colours (data signals only)** | `--status-green`, `--status-red`, `--status-orange`, `--status-purple` | KPI value text and status badges when the value communicates a specific risk or performance signal |
 
-**Never apply a Tier 3 status colour to a structural element.** Card `borderTop`, card `borderLeft`, eyebrow bars, section dividers, and categorical chart labels are structural — they must use Tier 1 or Tier 2 colours only. Status colours may appear in: value text, progress bars, risk indicators, and status badges.
+**Never apply a Tier 3 status colour to a structural element.** Card `borderTop`,
+card `borderLeft`, eyebrow bars, section dividers, and categorical chart labels are
+structural — they must use Tier 1 or Tier 2 colours only. Status colours may appear in:
+value text, progress bars, risk indicators, and status badges.
 
 **Permitted and prohibited use matrix:**
 
@@ -302,15 +322,15 @@ Three tiers, strict priority:
 ### Spacing tokens
 
 The spacing scale is an 8-point grid: `4 / 8 / 12 / 16 / 24 / 32 / 40 / 48 / 64 / 96px`.
-Use `var(--space-N)` for margins and paddings in CSS. In inline styles, use the raw pixel value
-but always from this scale — no `7px`, `11px`, or arbitrary values.
+Use `var(--space-N)` for margins and paddings in CSS. In inline styles, use the raw pixel
+value but always from this scale — no `7px`, `11px`, or arbitrary values.
 
 ### Content width constraints
 
 Every page body wraps its content with a `maxWidth` constraint and `margin: 0 auto`:
 
-- `var(--max-width-dashboard)` — 1300px for data-heavy pages (Analytics, Segments, Campaigns)
-- `var(--max-width-content)` — 1200px for reading-oriented pages (Info, Admin)
+- `var(--max-width-dashboard)` — 1300px for data-heavy pages
+- `var(--max-width-content)` — 1200px for reading-oriented pages
 
 ### Grid patterns
 
@@ -341,23 +361,24 @@ background with a 12px backdrop blur and a subtle bottom border:
 left                         centre-ish                                          right
 ```
 
-**Left:** OPB monogram rendered in Fraunces — `O` in white weight 300, `PB` in italic
-`var(--gold-light)` weight 300. Always inline styles, never Tailwind or className. The
-monogram is purely decorative (no click handler).
+**Left:** OPB monogram rendered in Fraunces — `O` in `var(--white)` weight 300, `PB` in
+italic `var(--gold-light)` weight 300. Always inline styles, never Tailwind or className.
+The monogram is purely decorative (no click handler).
 
-**Centre:** App title in 9px uppercase Plus Jakarta, `letter-spacing: 3px`, `rgba(255,255,255,0.4)`.
+**Centre:** App title in 9px uppercase Plus Jakarta, `letter-spacing: 3px`,
+`rgba(255,255,255,0.4)`.
 
-**Right cluster:** Nav page links → user email and role metadata → Logout button → Theme toggle.
+**Right cluster:** Nav page links → user metadata → Logout button → Theme toggle.
 
 ### Nav links — inline style pattern
 
-Nav links are `<button>` elements. Active state is applied by spreading `navLinkActive` over
-`navLinkBase` via the ternary pattern — never via a className or CSS class toggle:
+Nav links are `<button>` elements. Active state is applied via a ternary spread — never via
+a className or CSS class toggle:
 
 ```tsx
 const navLinkBase: React.CSSProperties = {
   background: 'none',
-  backgroundColor: 'transparent',   // explicit — prevents browser default white bg
+  backgroundColor: 'transparent',   // explicit — prevents browser default white bg on re-render
   border: 'none',
   color: 'rgba(255,255,255,0.45)',
   cursor: 'pointer',
@@ -385,31 +406,17 @@ const navLinkActive: React.CSSProperties = {
 button background (white in light mode) when the component re-renders from active to inactive.
 The explicit transparent value prevents the white flash.
 
-### Page routing — no router library
+### Page routing
 
-Navigation is managed with a single `useState<Page>` in `App.tsx`. The `Page` union type
-lists every valid route. Adding a new page requires:
+For SPAs, manage navigation with a single `useState<Page>` in `App.tsx`. The `Page` union
+type lists every valid route. For Next.js, use the App Router file system. The nav link
+active state is determined by comparing the current route to the link's target.
 
-1. Adding the string literal to the `Page` union in `App.tsx`
+Adding a new page (SPA pattern) requires:
+
+1. Adding the string literal to the `Page` union
 2. Adding a `case` to the `renderPage()` switch
-3. Adding the entry to the `pages` array in `Nav.tsx`
-
-No URL changes, no history API, no `react-router-dom`. This is appropriate for a dashboard
-used as a single-tab tool where deep-linking is not required.
-
-### Current pages
-
-| ID | Label | Component |
-|---|---|---|
-| `dashboard` | Dashboard | `DashboardPage` |
-| `segments` | Segments | `SegmentsPage` |
-| `campaign-launcher` | Campaigns | `CampaignLauncherPage` |
-| `analytics` | Analytics | `AnalyticsPage` |
-| `info` | Info | `InfoPage` |
-| `admin` | Admin | `AdminPage` |
-
-Pages not shown in nav (no nav entry): `segment-builder`, `segment-detail`,
-`simulation-results`, `login`.
+3. Adding the entry to the `pages` array in `Nav`
 
 ---
 
@@ -452,8 +459,7 @@ const heroStyle: React.CSSProperties = {
     linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)
   `,
   backgroundSize: '48px 48px',
-  padding: '48px 48px 0',  // bottom 0 when a tab bar attaches at the bottom
-  // or '56px 48px' when the hero is self-contained
+  padding: '56px 48px',   // use '48px 48px 0' when a tab bar attaches at the bottom
 }
 ```
 
@@ -461,20 +467,19 @@ The `backgroundImage` grid texture is the same across every hero on every page. 
 lines are `rgba(255,255,255,0.025)` — barely visible, but they give the navy a woven
 structure at high brightness.
 
-**`padding-bottom: 0`** when the page has a tab bar (Analytics, Info). The tab bar's
+**`padding-bottom: 0`** when the hero has a tab bar at its bottom edge. The tab bar's
 `marginBottom: -1` on the active tab merges its bottom border with the section divider,
-creating a visual connection between the nav and the content below. If the hero has no
-tab bar, use `padding: '56px 48px'`.
+creating a visual connection between the hero and the body. Otherwise use `padding: '56px 48px'`.
 
 ### Body section
 
-The body sits on `var(--light)` (`#f4f6f9`). Each section uses:
+The body sits on `var(--light)`. Each section uses:
 
 ```tsx
 const section: React.CSSProperties = {
   maxWidth: 'var(--max-width-dashboard)',
   margin: '0 auto',
-  padding: '40–56px 48px',
+  padding: '40px 48px',   // up to 56px for spacious sections
 }
 ```
 
@@ -488,12 +493,12 @@ The contrast ratios are designed for their respective contexts.
 
 ### Tab bar pattern
 
-Used on Analytics and Info pages. The tab bar sits at the bottom of the hero, visually
+When a page has multiple content tabs, the tab bar sits at the bottom of the hero, visually
 bridging it to the body:
 
 ```tsx
 <button style={{
-  ...
+  // ...base styles
   borderBottom: `2px solid ${active === id ? 'var(--gold-light)' : 'transparent'}`,
   marginBottom: -1,   // merges with hero's bottom edge
   color: active === id ? 'var(--gold-light)' : 'rgba(255,255,255,0.4)',
@@ -506,20 +511,36 @@ bridging it to the body:
 
 ### `Eyebrow`
 
-`dashboard/src/components/Eyebrow.tsx`
-
 Renders a gold horizontal rule + uppercase label. Props: `children`, `light?: boolean`.
 
 ```tsx
-<Eyebrow>Section name</Eyebrow>      // gold, for light backgrounds
-<Eyebrow light>Section name</Eyebrow> // gold-light, for dark backgrounds
+function Eyebrow({ children, light }: { children: React.ReactNode; light?: boolean }) {
+  return (
+    <div style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 8,
+      fontSize: 9,
+      fontFamily: 'var(--fb)',
+      fontWeight: 500,
+      letterSpacing: '4px',
+      textTransform: 'uppercase',
+      color: light ? 'var(--gold-light)' : 'var(--gold)',
+      marginBottom: 10,
+    }}>
+      <div style={{ width: 24, height: 1, flexShrink: 0,
+                    backgroundColor: light ? 'var(--gold-light)' : 'var(--gold)' }} />
+      {children}
+    </div>
+  )
+}
 ```
 
 Eyebrow labels are max 4 words. No leading numbers (not "01 · Metrics" — just "Metrics").
 
 ### Card
 
-No shared `Card` component exists — cards are inline style objects defined per-page as
+No shared `Card` component exists — cards are inline style objects defined per-file as
 `const card: React.CSSProperties`. The standard values are:
 
 ```tsx
@@ -535,10 +556,13 @@ const card: React.CSSProperties = {
 Danger zone cards add `border: '1px solid rgba(176,53,53,0.18)'` and a reddish background
 tint. Callout / note cards add `borderLeft: '3px solid var(--gold)'`.
 
-### KPI stat card (dashboard variant)
+### KPI stat card (body variant)
+
+Used in the body area — white card with gold top accent bar. The accent is structural, not
+semantic:
 
 ```tsx
-function KpiCard({ label, value, sub, valueColor }: { label: string; value: string; sub?: string; valueColor?: string }) {
+function KpiCard({ label, value, valueColor }: { label: string; value: string; valueColor?: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'stretch', gap: 16, ...card }}>
       <div style={{ width: 3, backgroundColor: 'var(--gold)', borderRadius: 2, flexShrink: 0 }} />
@@ -553,7 +577,12 @@ function KpiCard({ label, value, sub, valueColor }: { label: string; value: stri
 }
 ```
 
-The left accent bar (`width: 3, height: 100%`) always uses `var(--gold)`. Do not use per-KPI status colours for the structural accent bar, regardless of what the metric represents. If a KPI value represents a critical risk, express it in the value text colour (`valueColor` prop) — not the bar colour.
+The left accent bar always uses `var(--gold)`. Do not use per-KPI status colours for the
+structural accent bar, regardless of what the metric represents. If a KPI value represents
+a critical risk, express it in the value text colour (`valueColor` prop) — not the bar colour.
+
+Alternatively, implement the accent as `borderTop: '3px solid var(--gold)'` on the card
+container itself — both approaches are valid.
 
 ### KPI stat (hero / banner variant)
 
@@ -571,56 +600,35 @@ Used inside dark hero sections — no card wrapper:
 </div>
 ```
 
-The `borderLeft` is always `2px solid var(--gold)`. Every hero stat card across every page uses the same accent — do not vary by metric type, severity, or department. The value text uses `var(--gold-light)` uniformly on dark backgrounds.
-
-### Score / KPI card (body variant with `borderTop`)
-
-Used for standalone metric cards in the body sections (not in the hero). The top accent border is always gold — it is structural, not semantic:
-
-```tsx
-<div style={{
-  ...card,                                  // base card style
-  borderTop: '3px solid var(--gold)',       // always gold — never a status colour
-  paddingTop: 20,
-}}>
-  <div style={{ fontFamily: 'var(--fb)', fontSize: 9, textTransform: 'uppercase',
-                letterSpacing: '3px', color: 'var(--mid)', marginBottom: 8 }}>
-    {label}
-  </div>
-  <div style={{ fontFamily: 'var(--fd)', fontSize: 28, fontWeight: 300,
-                color: valueColor }}>       {/* valueColor may be a status colour for critical KPIs */}
-    {value}
-  </div>
-</div>
-```
-
-The `valueColor` may contextually use a status colour (e.g., `var(--status-red)` for critical attrition rates, `var(--status-orange)` for budget warnings) — but only on the value numeral, never the label, the card border, or any surrounding structural element.
+The `borderLeft` is always `2px solid var(--gold)`. Every hero stat card across every page
+uses the same accent — do not vary by metric type, severity, or department. The value text
+uses `var(--gold-light)` uniformly on dark backgrounds.
 
 ### Status badge / sentiment pill
 
-Pill-shaped indicator with a 5px dot + label:
+Pill-shaped indicator with a dot + label:
 
 ```tsx
-<div style={{ display: 'inline-flex', alignItems: 'center', gap: 4,
+<div style={{ display: 'inline-flex', alignItems: 'center', gap: 6,
               backgroundColor: bg, borderRadius: 'var(--radius-pill)',
-              padding: '2px 8px' }}>
-  <div style={{ width: 5, height: 5, borderRadius: '50%', backgroundColor: color }} />
-  <span style={{ fontFamily: 'var(--fb)', fontSize: 10, textTransform: 'capitalize',
-                 fontWeight: 600, color }}>{label}</span>
+              padding: '3px 10px' }}>
+  <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: dot }} />
+  <span style={{ fontFamily: 'var(--fb)', fontSize: 10, fontWeight: 500,
+                 color: text }}>{label}</span>
 </div>
 ```
 
-The `bg` and `color` values come from the semantic status colour system, never from
-arbitrary values.
+The `bg`, `dot`, and `text` values come from the semantic status colour system (see the
+variant table in §3). Never use arbitrary values.
 
 ### Tables
 
 All data tables follow the same pattern:
 
-- `<thead>`: `backgroundColor: 'var(--primary)'`, `color: '#fff'`, `10px uppercase`,
+- `<thead>`: `backgroundColor: 'var(--primary)'`, `color: 'var(--white)'`, `10px uppercase`,
   `letterSpacing: '2px'`, `padding: '12px 16px'`
 - `<tbody>` rows: alternating `var(--white)` / `var(--primary-10)` via `i % 2 === 0`
-- Cell padding: `10px 16px`
+- Cell padding: `12px 16px`
 - Sort buttons are `<th>` elements with `onClick` — the sort indicator is a plain `▾` or `▴`
   character appended to the label string
 
@@ -653,7 +661,7 @@ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
 display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200
 
 // Modal panel
-backgroundColor: '#fff', borderRadius: 14, padding: '32px 36px',
+backgroundColor: 'var(--white)', borderRadius: 14, padding: '32px 36px',
 maxWidth: 400, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)'
 ```
 
@@ -661,12 +669,12 @@ The modal has a Cancel (ghost) button and a destructive action button (red backg
 
 ### Decorative section numerals
 
-Used on cards that have a numbered sequence (capability cards on Dashboard, step cards on Info):
+Used on cards that have a numbered sequence:
 
 ```tsx
 <div style={{
   fontFamily: 'var(--fd)', fontSize: 44, fontWeight: 300,
-  color: 'var(--primary-30)',   // ← navy-tinted, not grey
+  color: 'var(--primary-30)',   // navy-tinted, not grey
   lineHeight: 1, marginBottom: 2, userSelect: 'none',
 }}>
   {num}
@@ -684,57 +692,63 @@ between the number and the title.
 
 ### Implementation
 
-Theme is stored in `localStorage` under the key `spb-theme`. It is read once on mount in
+Theme is stored in `localStorage` under the key `opb-theme`. It is read once on mount in
 `useTheme.ts` and applied by setting `data-theme` on `document.documentElement`:
 
 ```ts
+type Theme = 'light' | 'dark'
+
 function applyTheme(theme: Theme): void {
   document.documentElement.setAttribute('data-theme', theme)
+  localStorage.setItem('opb-theme', theme)
+}
+
+function getInitialTheme(): Theme {
+  return (localStorage.getItem('opb-theme') as Theme) ?? 'light'
 }
 ```
 
-CSS overrides are then applied via the attribute selector in `tokens.css`:
+CSS overrides are then applied via the attribute selector in the global stylesheet:
 
 ```css
 html[data-theme="dark"] {
-  --light:      #0f1117;   /* Page background darkens */
-  --white:      #1a1d27;   /* Card surfaces darken */
-  --dark:       #e2e8f0;   /* Text lightens */
-  --mid:        #8b9099;   /* Secondary text lightens */
-  --primary-10: rgba(255,255,255,0.07);  /* Subtle light tint on dark surfaces */
-  --shadow-card: 0 1px 4px rgba(0,0,0,0.35);
-  --shadow-soft: 0 1px 6px rgba(0,0,0,0.3);
+  --light:      #0f1117;                    /* Page background darkens */
+  --white:      #1a1d27;                    /* Card surfaces darken */
+  --dark:       #e2e8f0;                    /* Text lightens */
+  --mid:        #8b9099;                    /* Secondary text lightens */
+  --primary-10: rgba(255, 255, 255, 0.07);  /* Subtle light tint replaces navy tint */
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-soft: 0 1px 6px rgba(0, 0, 0, 0.3);
 }
 ```
 
 The primary navy, gold, and status colours are **not** overridden in dark mode — they remain
 the same. The nav, heroes, and footers use the navy background in both modes; dark mode only
-affects the body (light) and card (white) surfaces.
+affects body (`--light`) and card (`--white`) surfaces.
 
 ### Default theme
 
-The application defaults to **light mode**. The fallback in `getInitialTheme()` returns
-`'light'` unconditionally when no stored preference exists — the OS `prefers-color-scheme`
-preference is ignored. The user can toggle with the `◑ Dark` / `☀ Light` button in the
-nav bar.
+The application defaults to **light mode**. `getInitialTheme()` returns `'light'` when no
+stored preference exists — the OS `prefers-color-scheme` media query is ignored. The user
+toggles with the `◑ Dark` / `☀ Light` button in the nav bar.
 
 ### What components need to do to support dark mode
 
 Because all colours use `var(--token)` references, most components get dark mode for free.
 The only patterns to watch:
 
-- **Hardcoded `#ffffff`**: Anywhere the code uses literal `#ffffff` instead of `var(--white)`,
-  that surface will not darken. Always use `var(--white)` for card surfaces.
-- **Hardcoded `#f4f6f9`** or `#F4F6F9`: Use `var(--light)` instead.
-- **Hardcoded `rgba(0,51,102,0.XX)`**: For subtle navy tints, use `var(--primary-10)` or the
-  appropriate opacity variant. On dark mode, `--primary-10` is overridden to a light white
-  tint that achieves the same visual effect on dark surfaces.
+- **Hardcoded `#ffffff`**: Use `var(--white)` — surfaces that use literal `#ffffff` will
+  not darken in dark mode.
+- **Hardcoded `#f4f6f9`**: Use `var(--light)` instead.
+- **Hardcoded `rgba(0,51,102,0.XX)`**: For subtle navy tints, use `var(--primary-10)`. In
+  dark mode, `--primary-10` is overridden to a light white tint that achieves the same
+  visual effect on dark surfaces.
 
 ---
 
 ## 11. State Management
 
-### Auth store (`authStore.ts`)
+### Auth store
 
 ```ts
 interface AuthState {
@@ -745,99 +759,94 @@ interface AuthState {
 }
 ```
 
-The token is persisted to `localStorage` under `spb_auth_token`. `clearAuth()` removes both
-the store state and the `localStorage` entry. The `user` object is populated from the JWT
-payload on login.
+The token is persisted to `localStorage` under an app-specific key (e.g., `opb_auth_token`).
+`clearAuth()` removes both the store state and the `localStorage` entry. The `user` object
+is populated from the JWT payload on login.
 
-`App.tsx` reads `token` to decide whether to render the `LoginPage` or the main app.
+The root layout or `App.tsx` reads `token` to decide whether to render the login page or
+the main app.
 
-### Campaign store (`campaignStore.ts`)
+### Domain stores
 
-Holds the multi-step campaign launcher form across page navigations. The `resetForm()` method
-is called when the user starts a new campaign after viewing simulation results.
+Create one Zustand store per multi-step flow or complex form (e.g., a wizard, a campaign
+launcher, a configuration builder). Reset the store when the user exits the flow. Keep
+stores flat — nested objects create unnecessarily verbose update functions.
 
-### No server state library
+### No server state library by default
 
-There is no React Query, SWR, or similar caching layer. Each page's `useEffect` fetches
-directly from the `api` service on mount. This is sufficient for the current use case —
-simulation results are not frequently updated in the background and the data volume does not
-require pagination beyond the 100-item server cap.
+Each component fetches directly from the `api` service on mount via `useEffect`. Add React
+Query or SWR only when the project has frequent background updates, pagination, or cache
+invalidation requirements that make manual `useEffect` fetching unwieldy.
 
 ---
 
 ## 12. API Layer
 
-All HTTP calls go through `dashboard/src/services/api.ts`. **No component imports `fetch`
+All HTTP calls go through a dedicated `api` service module. **No component imports `fetch`
 directly.** This is enforced by convention, not tooling.
 
 ### Structure
 
 ```ts
+// src/lib/api.ts (or src/services/api.ts)
 export const api = {
   health: () => request<HealthResponse>('/health'),
 
-  segments: {
-    list: () => request<{ items: SegmentSummary[] }>('/segments?size=100').then((r) => r.items),
+  things: {
+    list:   ()     => request<{ items: Thing[] }>('/things?size=100').then((r) => r.items),
+    get:    (id)   => request<Thing>(`/things/${id}`),
+    create: (body) => request<Thing>('/things', { method: 'POST', body }),
+    delete: (id)   => request<void>(`/things/${id}`, { method: 'DELETE' }),
   },
-
-  simulations: {
-    run:  (body) => request<SimulationRunResponse>('/simulate/run', { method: 'POST', body }),
-    get:  (id)   => request<SimulationRunResponse>(`/simulate/runs/${id}`),
-    list: (params) => request<{ items: ... }>(`/simulate/runs?...`).then((r) => r.items),
-  },
-
-  admin: { stats, seed, clear },
-  auth:  { devToken, createKey, listKeys, revokeKey },
-  org:   { get, listMembers, inviteMember, removeMember },
 }
 ```
 
 ### Pagination unwrapping
 
 All list endpoints on the backend return `{ items: T[], total, page, size }`. The `api` layer
-unwraps this transparently — calling code receives `T[]` directly. This avoids the `.items`
-access being scattered across every component that calls a list endpoint.
+unwraps this transparently — calling code receives `T[]` directly. This avoids `.items`
+access being scattered across every component.
 
 ### Auth headers
 
-The `request()` function reads `spb_auth_token` from `localStorage` and adds
-`Authorization: Bearer <token>` to every request. The backend's `AUTH_REQUIRED=false` default
-means this header is optional in development.
+The `request()` function reads the auth token from `localStorage` (key `opb_auth_token`)
+and adds `Authorization: Bearer <token>` to every request. Skip the header when no token
+exists (unauthenticated routes).
 
 ### Interface discipline
 
-The TypeScript interfaces in `api.ts` must exactly match the backend Pydantic response models.
-Invented fields (fields that exist in the interface but not in the API response) will be
-`undefined` at runtime but typed as their declared type — TypeScript will not catch this.
-Before adding a field to an interface, verify it in the actual API response JSON.
+TypeScript interfaces in `api.ts` must exactly match the backend response models. A field
+that exists in the interface but not in the API response will be `undefined` at runtime
+and typed as its declared type — TypeScript will not catch this. Before adding a field to
+an interface, verify it in the actual API response JSON.
 
 ---
 
 ## 13. Inline Styles vs CSS Modules vs Tailwind
 
-The application uses **inline styles exclusively**. No Tailwind, no CSS Modules, no styled-components.
+The OPB design system uses **inline styles exclusively**. No Tailwind, no CSS Modules,
+no styled-components.
 
 ### Rationale
 
 1. **Design token enforcement**: Inline styles that reference `var(--token)` names make it
    immediately visible when a hardcoded value is used instead. In a Tailwind class like
-   `text-blue-800`, the actual hex value is invisible and designers cannot audit it.
+   `text-blue-800`, the actual hex value is invisible and cannot be audited.
 
-2. **No CSS specificity battles**: Every style is scoped to the exact element it is applied to.
-   There is no class specificity cascade to debug.
+2. **No CSS specificity battles**: Every style is scoped to the exact element it is applied
+   to. There is no class specificity cascade to debug.
 
-3. **TypeScript coverage**: `React.CSSProperties` catches misspelled property names and invalid
-   values at compile time. `className` strings have no type safety.
+3. **TypeScript coverage**: `React.CSSProperties` catches misspelled property names and
+   invalid values at compile time. `className` strings have no type safety.
 
-4. **Design fidelity**: The OPB design system uses precise values (e.g., `rgba(201,168,76,0.12)`
-   for active nav backgrounds) that have no Tailwind equivalent. Approximating them with utility
-   classes would break the visual system.
+4. **Design fidelity**: The OPB system uses precise values (e.g., `rgba(201,168,76,0.12)`
+   for active nav backgrounds) that have no Tailwind equivalent. Approximating them with
+   utility classes breaks the visual system.
 
 ### Style object pattern
 
-Styles are defined as `const` objects at the top of each file, outside the component function.
-This prevents recreation on every render. Large shared style objects (like `heroStyle`,
-`card`, `section`) are defined once and spread or referenced by multiple elements:
+Styles are defined as `const` objects at the top of each file, outside the component
+function. This prevents recreation on every render:
 
 ```tsx
 // Define outside component
@@ -859,12 +868,11 @@ const card: React.CSSProperties = {
 
 ## 14. Migration Guide
 
-This section explains exactly how to apply the OPB design system to a new or existing React
-application.
+How to apply the OPB design system to a new or existing React application.
 
 ### Step 1 — Fonts
 
-Add to `<head>` in `index.html`:
+Add to `<head>` in the document root (`index.html`, `layout.tsx`, etc.):
 
 ```html
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;1,9..144,300;1,9..144,400&display=swap" rel="stylesheet">
@@ -872,34 +880,54 @@ Add to `<head>` in `index.html`:
 
 ### Step 2 — Tokens
 
-Copy `dashboard/src/styles/tokens.css` verbatim into the new project. Import it once at the
-top of the entry file (`main.tsx` or equivalent). Do not modify the token values — they are
-the brand.
+Copy the CSS custom properties block from §3 into your global stylesheet and import it once
+at the root of the application. Do not modify the token values — they are the brand.
 
 ### Step 3 — Base reset
 
-The CSS reset is included in `tokens.css` after the token definitions. It sets:
-- `box-sizing: border-box` on everything
-- `body` to `background-color: var(--light)`, `font-family: var(--fb)`, `font-size: 15px`,
-  `line-height: 1.7`
+Add to the global stylesheet after the token block:
+
+```css
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--light);
+  font-family: var(--fb);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--dark);
+  -webkit-font-smoothing: antialiased;
+}
+```
 
 ### Step 4 — Copy the Eyebrow component
 
-Copy `dashboard/src/components/Eyebrow.tsx` to the new project unchanged. It has no
-dependencies beyond React. Use it as the section label on every content section.
+Implement the `Eyebrow` component (pattern in §9). It has no dependencies beyond React. Use
+it as the section label on every content section.
 
 ### Step 5 — Build the Nav
 
-Follow the Nav pattern from `dashboard/src/components/Nav.tsx`:
+Follow the Nav pattern from §7:
 
 ```tsx
 // Minimum required nav structure
-<nav style={navStyle}>                          {/* sticky, dark navy, 52px */}
-  <span>[OPB Monogram]</span>                  {/* Fraunces O + italic gold PB */}
-  <span style={appTitleStyle}>[App Name]</span> {/* 9px uppercase, muted */}
-  <div style={{ display: 'flex', gap: 16 }}>
+<nav style={navStyle}>                               {/* sticky, dark navy, 52px */}
+  <span>
+    <span style={{ fontFamily: 'var(--fd)', fontSize: 20, fontWeight: 300,
+                   color: 'var(--white)' }}>O</span>
+    <em style={{ fontFamily: 'var(--fd)', fontSize: 20, fontWeight: 300,
+                 fontStyle: 'italic', color: 'var(--gold-light)' }}>PB</em>
+  </span>
+  <span style={{ fontFamily: 'var(--fb)', fontSize: 9, letterSpacing: '3px',
+                 textTransform: 'uppercase', color: 'rgba(255,255,255,0.4)' }}>
+    App Name
+  </span>
+  <div style={{ display: 'flex', gap: 4 }}>
     {pages.map(({ id, label }) => (
-      <button style={currentPage === id ? {...navLinkBase, ...navLinkActive} : navLinkBase}
+      <button key={id}
+              style={currentPage === id ? { ...navLinkBase, ...navLinkActive } : navLinkBase}
               onClick={() => navigate(id)}>
         {label}
       </button>
@@ -909,8 +937,9 @@ Follow the Nav pattern from `dashboard/src/components/Nav.tsx`:
 </nav>
 ```
 
-**Critical:** Include `backgroundColor: 'transparent'` in `navLinkBase`. Without it, inactive
-nav buttons show a white background in light mode when transitioning from active state.
+**Critical:** Include `backgroundColor: 'transparent'` in `navLinkBase`. Without it,
+inactive nav buttons show a white background in light mode when transitioning from active
+state.
 
 ### Step 6 — Build a page
 
@@ -924,10 +953,12 @@ export default function MyPage() {
       <div style={heroStyle}>
         <div style={{ maxWidth: 'var(--max-width-dashboard)', margin: '0 auto' }}>
           <Eyebrow light>Section eyebrow</Eyebrow>
-          <h1 style={{ fontFamily: 'var(--fd)', fontSize: 36, fontWeight: 300, color: '#fff' }}>
+          <h1 style={{ fontFamily: 'var(--fd)', fontSize: 36, fontWeight: 300,
+                       color: 'var(--white)' }}>
             Title with <em style={{ fontStyle: 'italic', color: 'var(--gold-light)' }}>italic</em>
           </h1>
-          <p style={{ fontFamily: 'var(--fb)', fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>
+          <p style={{ fontFamily: 'var(--fb)', fontSize: 14,
+                      color: 'rgba(255,255,255,0.55)' }}>
             Subtitle text.
           </p>
         </div>
@@ -935,19 +966,19 @@ export default function MyPage() {
 
       {/* 2. Body */}
       <div style={{ backgroundColor: 'var(--light)', minHeight: '70vh' }}>
-        <div style={{ maxWidth: 'var(--max-width-dashboard)', margin: '0 auto', padding: '40px 48px' }}>
-
-          {/* Section */}
+        <div style={{ maxWidth: 'var(--max-width-dashboard)', margin: '0 auto',
+                      padding: '40px 48px' }}>
           <div style={card}>
             <Eyebrow>Section label</Eyebrow>
-            <h2 style={{ fontFamily: 'var(--fd)', fontSize: 22, fontWeight: 300, color: 'var(--dark)' }}>
+            <h2 style={{ fontFamily: 'var(--fd)', fontSize: 22, fontWeight: 300,
+                         color: 'var(--dark)' }}>
               Section title
             </h2>
-            <p style={{ fontFamily: 'var(--fb)', fontSize: 14, color: '#475569', lineHeight: 1.75 }}>
+            <p style={{ fontFamily: 'var(--fb)', fontSize: 14,
+                        color: '#475569', lineHeight: 1.75 }}>
               Body text.
             </p>
           </div>
-
         </div>
       </div>
     </div>
@@ -957,19 +988,19 @@ export default function MyPage() {
 
 ### Step 7 — Wire routing
 
-In `App.tsx`:
+For SPAs using `useState`-based routing in `App.tsx`:
 
 ```tsx
-export type Page = 'home' | 'my-page' | 'login'
+export type Page = 'home' | 'detail' | 'login'
 
 export default function App() {
   const [page, setPage] = useState<Page>('home')
 
   const renderPage = () => {
     switch (page) {
-      case 'home':    return <HomePage />
-      case 'my-page': return <MyPage />
-      case 'login':   return <LoginPage />
+      case 'home':   return <HomePage />
+      case 'detail': return <DetailPage />
+      case 'login':  return <LoginPage />
     }
   }
 
@@ -977,17 +1008,18 @@ export default function App() {
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Nav currentPage={page} onNavigate={setPage} />
       <main style={{ flex: 1 }}>{renderPage()}</main>
-      <Footer />
     </div>
   )
 }
 ```
 
+For Next.js, use `usePathname()` from `next/navigation` to determine the active nav link.
+
 ### Step 8 — API service
 
-Create `src/services/api.ts` following the pattern in this project:
+Create `src/lib/api.ts` (or `src/services/api.ts`):
 
-1. A base `request<T>(path, options)` function that handles auth headers, JSON
+1. A base `request<T>(path, options?)` function that handles auth headers, JSON
    serialisation, and error throwing
 2. Domain-grouped methods: `api.things.list()`, `api.things.create(body)`, etc.
 3. Pagination unwrapping done inside `api.ts` — components receive `T[]`, not `{ items: T[] }`
@@ -995,32 +1027,33 @@ Create `src/services/api.ts` following the pattern in this project:
 
 ### Step 9 — Dark mode
 
-Copy `useTheme.ts` and add the dark mode overrides from `tokens.css` to your token file.
-Add the toggle button to the nav. That is all — as long as every component uses token
-references (`var(--white)`, `var(--light)`) instead of hardcoded hex values, dark mode works
-without any component-level changes.
+Implement `useTheme.ts`:
 
-### Common mistakes to avoid
+```ts
+import { useState, useEffect } from 'react'
 
-| Mistake | Correct approach |
-|---|---|
-| Hardcoding `#ffffff` in a card | Use `var(--white)` |
-| Hardcoding `#f4f6f9` as a background | Use `var(--light)` |
-| Using `rgba(0,51,102,0.X)` directly | Use `var(--primary-10)` or the closest token |
-| Setting `color: 'gold'` or `color: 'navy'` | Use `var(--gold)` and `var(--primary)` |
-| Creating a new status colour | Use the five semantic status tokens |
-| Using Fraunces for body text | Fraunces is display-only |
-| Bolding a Fraunces title | Use weight 300 or 400, never 700 |
-| Applying an Eyebrow without the line | Use the `<Eyebrow>` component — it renders the line |
-| Omitting `backgroundColor: 'transparent'` on nav links | Causes white flash on inactive buttons in light mode |
-| Adding `stimulus_type` to `SimulationRunResponse` interface without verifying the actual API response | Type-safe undefined at runtime |
-| Using a status colour (`--status-red`, `--status-orange`, `--status-green`, `--status-purple`) for a card `borderLeft` or `borderTop` | Use `var(--gold)` for all structural accent borders — status colours belong only in value text and status badges |
-| Varying `borderLeft` colour across hero stat cards by metric type or severity | All hero stat cards use `borderLeft: '2px solid var(--gold)'` uniformly — no per-metric colour variation |
-| Using green, purple, or orange in a categorical chart series | Use the navy gradient series + gold highlight only; status colours in charts imply semantic meaning (success, analytics, warning) and confuse readers when used decoratively |
-| Using hex values not in the design system in SVG `fill` or `stroke` attributes | SVG attributes cannot use CSS custom properties — use the exact hex values from the design token list (e.g., `#003366`, `#c8982a`, `#99bbdd`); values like `#c0cfe0` or `#00a86b` are bugs |
-| Building a variance badge background by string-manipulating a CSS `var()` name (e.g., appending `14` to `var(--status-red)`) | CSS `var()` names cannot be concatenated to produce valid CSS — define a proper helper function that returns valid `rgba()` or semantic background tokens based on a numeric condition |
-| Passing `accent` colour prop to a stat or KPI card component and using it for `borderTop` or `borderLeft` | Remove the structural colour prop; hardcode `var(--gold)` for the border; pass a separate `valueColor` prop only if the value numeral needs a contextual status colour |
+type Theme = 'light' | 'dark'
 
----
+export function useTheme() {
+  const [theme, setTheme] = useState<Theme>('light')
 
-*Last updated: 2026-05-18. Maintained by Octavio Pérez Bravo.*
+  useEffect(() => {
+    const stored = localStorage.getItem('opb-theme') as Theme | null
+    const initial = stored ?? 'light'
+    setTheme(initial)
+    document.documentElement.setAttribute('data-theme', initial)
+  }, [])
+
+  function toggle() {
+    const next: Theme = theme === 'light' ? 'dark' : 'light'
+    setTheme(next)
+    document.documentElement.setAttribute('data-theme', next)
+    localStorage.setItem('opb-theme', next)
+  }
+
+  return { theme, toggle }
+}
+```
+
+Add the theme toggle button to the Nav right cluster. The dark mode CSS block in the global
+stylesheet (§10) handles the rest automatically.

@@ -66,10 +66,10 @@ export default function NPSWidget({ tenantId }: { tenantId: string }) {
     rating === null
       ? "var(--mid)"
       : rating >= 9
-      ? "#2d6a4f"
+      ? "#0D5C3A"
       : rating >= 7
       ? "var(--gold)"
-      : "#c1121f";
+      : "#7A1020";
 
   return (
     <div
@@ -170,7 +170,7 @@ export default function NPSWidget({ tenantId }: { tenantId: string }) {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(11, 1fr)", gap: 4 }}>
               {Array.from({ length: 11 }, (_, i) => {
                 const active = hovered !== null ? i === hovered : i === rating;
-                const fill = i >= 9 ? "#2d6a4f" : i >= 7 ? "var(--gold)" : "#c1121f";
+                const fill = i >= 9 ? "#27b97c" : i >= 7 ? "#c8982a" : "#e03448";
                 return (
                   <button
                     key={i}
@@ -179,7 +179,7 @@ export default function NPSWidget({ tenantId }: { tenantId: string }) {
                     onMouseLeave={() => setHovered(null)}
                     style={{
                       padding: "6px 0",
-                      border: active ? `2px solid ${fill}` : "1.5px solid #D1D5DB",
+                      border: active ? `2px solid ${fill}` : "1.5px solid var(--primary-10)",
                       borderRadius: 6,
                       backgroundColor: active ? fill : "transparent",
                       color: active ? "var(--white)" : "var(--dark)",
@@ -242,7 +242,7 @@ export default function NPSWidget({ tenantId }: { tenantId: string }) {
                 width: "100%",
                 padding: "10px 12px",
                 borderRadius: 8,
-                border: "1.5px solid #D1D5DB",
+                border: "1.5px solid var(--primary-10)",
                 fontFamily: "var(--fb)",
                 fontSize: 13,
                 color: "var(--dark)",
@@ -257,7 +257,7 @@ export default function NPSWidget({ tenantId }: { tenantId: string }) {
                 style={{
                   flex: 1,
                   padding: "9px 0",
-                  border: "1.5px solid #D1D5DB",
+                  border: "1.5px solid var(--primary-10)",
                   borderRadius: 8,
                   background: "transparent",
                   cursor: "pointer",

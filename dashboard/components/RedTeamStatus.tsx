@@ -131,7 +131,7 @@ export default function RedTeamStatus() {
               fontFamily: "'Fraunces', Georgia, serif",
               fontSize: 22,
               fontWeight: 300,
-              color: "#0a1628",
+              color: "var(--dark)",
               margin: "0 0 4px",
               lineHeight: 1.25,
             }}
@@ -208,9 +208,9 @@ export default function RedTeamStatus() {
                 boxShadow: "0 1px 4px rgba(0,51,102,0.08)",
               }}
             >
-              {/* Accent bar — color by status */}
+              {/* Accent bar — always gold per structural border rule */}
               <div
-                style={{ height: 3, backgroundColor: sty.dot }}
+                style={{ height: 3, backgroundColor: "var(--gold)" }}
               />
 
               <div style={{ padding: "20px 24px 24px" }}>
@@ -380,7 +380,7 @@ export default function RedTeamStatus() {
             <code
               style={{
                 fontFamily: "Courier New, monospace",
-                backgroundColor: "#FDEAEA",
+                backgroundColor: "rgba(224,52,72,0.08)",
                 padding: "1px 5px",
                 borderRadius: 3,
                 fontSize: 11,
