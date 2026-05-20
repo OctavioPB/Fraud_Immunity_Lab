@@ -18,6 +18,7 @@ const SECTION_LINKS = [
 
 const PAGE_LINKS = [
   { label: "Info", href: "/info" },
+  { label: "Admin", href: "/admin" },
 ];
 
 export default function Nav({ tenantId }: NavProps) {
@@ -30,7 +31,7 @@ export default function Nav({ tenantId }: NavProps) {
     setClientTenantId(getTenantId() || tenantId);
   }, [tenantId]);
 
-  const isInfoPage = pathname === "/info";
+  const isInfoPage = pathname !== "/";
 
   function handleNavClick(href: string) {
     if (href.startsWith("/")) {

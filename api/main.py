@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.routers import health, metrics
-from api.routers import immunity_score, auth, fraud_rings, alerts, tenants, reports
+from api.routers import immunity_score, auth, fraud_rings, alerts, tenants, reports, admin
 from api.middleware.auth import JWTAuthMiddleware
 from api.middleware.logging import RequestLoggingMiddleware
 from api.middleware.rate_limit import RateLimitMiddleware
@@ -55,6 +55,7 @@ app.include_router(fraud_rings.router)
 app.include_router(alerts.router)
 app.include_router(tenants.router)
 app.include_router(reports.router)
+app.include_router(admin.router)
 
 
 @app.on_event("startup")

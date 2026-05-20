@@ -52,6 +52,7 @@ desktop.ini
 # IDE
 .vscode/
 .idea/
+planning/
 *.swp
 *.swo
 
