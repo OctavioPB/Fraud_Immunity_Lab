@@ -105,7 +105,7 @@ A score above **80** means your systems detect most known attack types. Below **
 | Docker + Docker Compose v2 | Docker 24+ |
 | Python | 3.11+ |
 | Node.js | 20+ |
-| GNU Make | Any |
+| GNU Make | Any (`choco install make` on Windows) |
 | OpenAI API key | — |
 | Pinecone account + API key | — |
 
@@ -152,7 +152,8 @@ See `.env.example` for the full variable reference with documentation.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
+source .venv/bin/activate          # macOS/Linux
+# .venv\Scripts\Activate.ps1      # Windows (PowerShell)
 pip install -r requirements.txt
 ```
 

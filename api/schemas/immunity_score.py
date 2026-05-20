@@ -15,13 +15,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_config
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ScoreComponents(BaseModel):
     """Breakdown of the four Immunity Score sub-components."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     detection_coverage: float = Field(
         ge=0.0, le=1.0, description="Fraction of known attack types with ≥90% recall"
@@ -50,7 +50,7 @@ class ScoreComponents(BaseModel):
 class ImmunityScoreResponse(BaseModel):
     """Response for GET /immunity-score."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     tenant_id: str = Field(description="Tenant identifier from JWT claims")
     score: float = Field(ge=0.0, le=100.0, description="Composite Immunity Score (0–100)")
@@ -68,7 +68,7 @@ class ImmunityScoreResponse(BaseModel):
 class ScoreHistoryPoint(BaseModel):
     """A single point in the Immunity Score time series."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     score: float = Field(ge=0.0, le=100.0)
     components: ScoreComponents
@@ -78,7 +78,7 @@ class ScoreHistoryPoint(BaseModel):
 class ScoreHistoryResponse(BaseModel):
     """Response for GET /immunity-score/history."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     tenant_id: str
     days: int = Field(ge=1, le=365)
@@ -94,7 +94,7 @@ class ScoreHistoryResponse(BaseModel):
 class AttackTypeCoverage(BaseModel):
     """Detection coverage for a single attack type."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     attack_type: str
     last_tested_ms: int | None = Field(
@@ -116,7 +116,7 @@ class AttackTypeCoverage(BaseModel):
 class ScenarioCoverageResponse(BaseModel):
     """Response for GET /immunity-score/scenarios."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     tenant_id: str
     window_days: int = Field(default=30)
@@ -130,7 +130,7 @@ class ScenarioCoverageResponse(BaseModel):
 class TokenPayload(BaseModel):
     """Decoded JWT claims (internal use — not returned to clients)."""
 
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     sub: str = Field(description="Subject — user identifier")
     tenant_id: str = Field(description="Tenant identifier for data isolation")

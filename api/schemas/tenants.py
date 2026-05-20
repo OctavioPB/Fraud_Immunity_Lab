@@ -4,11 +4,11 @@ tenants — Pydantic schemas for the Tenant Provisioning API.
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, field_validator, model_config
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class TenantCreateRequest(BaseModel):
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     tenant_id: str = Field(
         description="Unique slug identifier for this tenant (lowercase alphanumeric + hyphens).",
@@ -38,7 +38,7 @@ class TenantCreateRequest(BaseModel):
 
 
 class TenantProvisioningStatus(BaseModel):
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     postgres_record_ready: bool = False
     redis_namespace_ready: bool = False
@@ -57,7 +57,7 @@ class TenantProvisioningStatus(BaseModel):
 
 
 class TenantResponse(BaseModel):
-    model_config = model_config(extra="forbid")
+    model_config = ConfigDict(extra="forbid")
 
     tenant_id: str
     display_name: str

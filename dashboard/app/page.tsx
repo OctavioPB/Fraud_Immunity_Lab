@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function DashboardPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get("access_token")?.value ?? "";
   const tenantId = cookieStore.get("tenant_id")?.value ?? "default";
 
