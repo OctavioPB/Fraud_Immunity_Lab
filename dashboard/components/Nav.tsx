@@ -3,6 +3,7 @@
 import { logout, getTenantId } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import type { Route } from "next";
 
 interface NavProps {
   tenantId: string;
@@ -35,7 +36,7 @@ export default function Nav({ tenantId }: NavProps) {
 
   function handleNavClick(href: string) {
     if (href.startsWith("/")) {
-      router.push(href);
+      router.push(href as Route);
     } else if (isInfoPage) {
       // Navigate from info page to dashboard section
       window.location.href = "/" + href;
